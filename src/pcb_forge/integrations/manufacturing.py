@@ -1,8 +1,8 @@
 """Guarded KiCad manufacturing export helpers."""
 from pathlib import Path
 
-from pcb_forge.integrations.kicad_cli import KiCadUnavailable, run_cli
 from pcb_forge.integrations.cam_preflight import validate_package
+from pcb_forge.integrations.kicad_cli import KiCadUnavailable, run_cli
 
 
 def export_manufacturing(project_dir: Path, cli_path: str, timeout: int = 120) -> dict:
