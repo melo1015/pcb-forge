@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -34,7 +35,7 @@ def _evidence(keys, project):
     for key in keys:
         artifact = evidence_dir / f"{key}.json"
         artifact.write_text(
-            __import__("json").dumps({"check": key, "passed": True}),
+            json.dumps({"check": key, "passed": True}),
             encoding="utf-8",
         )
         items.append({
@@ -55,7 +56,7 @@ def test_project_gate_blocks_without_evidence(orchestrator, tmp_path):
 
 def test_evidence_is_bound_to_design_fingerprint(orchestrator, tmp_path):
     project = _project(orchestrator, tmp_path)
-    orchestrator.record_project_evidence("demo", _evidence(REQUIRED_RELEASE_EVIDENCE))
+    orchestrator.record_project_evidence("demo", _evidence(REQUIRED_RELEASE_EVIDENCE, project))
     assert orchestrator.evaluate_project_release_gate("demo")["status"] == "PASS"
 
     (project / "design.kicad_pcb").write_text("design rev B", encoding="utf-8")
