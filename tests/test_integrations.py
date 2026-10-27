@@ -79,7 +79,10 @@ def test_manufacturing_export_runs_gerber_drill_and_step(tmp_path: Path):
     with patch("pcb_forge.integrations.manufacturing.run_cli", side_effect=fake_run) as run:
         result = export_manufacturing(tmp_path, "kicad-cli")
 
-    assert result["ok"] is True
+    assert result["ok"] is False
+    assert "structural CAM preflight failed" in result["error"]
+    assert result["ready_for_manufacturing"] is False
+    assert result["cam_preflight"][0]["passed"] is False
     assert len(result["commands_run"]) == 3
     assert {Path(path).suffix for path in result["outputs"]} >= {".gbr", ".drl", ".step"}
     assert run.call_count == 3
