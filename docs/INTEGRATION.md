@@ -91,3 +91,19 @@ ruff check src tests
 ```
 
 Configura el cliente MCP para iniciar `pcb-forge-mcp` en el mismo entorno virtual. La CI actual prueba el código Python con herramientas externas simuladas; no equivale a una prueba E2E con KiCad y un wrapper real instalados. Para declarar integración real, ejecuta también una prueba en un entorno que contenga versiones registradas de KiCad y del wrapper de generación.
+
+## 7. Prueba E2E real con Circuit-Synth + KiCad
+
+El workflow manual `.github/workflows/circuit-synth-e2e.yml` prueba el backend contra herramientas reales. No se ejecuta en los runners hospedados estándar: requiere un runner Linux propio y de confianza con las etiquetas `self-hosted`, `linux` y `pcb-forge-e2e`, además de KiCad CLI instalado y accesible en `PATH`. El workflow instala Circuit-Synth en Python 3.12.
+
+La prueba de referencia es `examples/circuit_synth/regulator_5v.py`. Para ejecutarla localmente:
+
+```bash
+python -m pip install -e ".[dev,circuit-synth]"
+python scripts/run_circuit_synth_e2e.py examples/circuit_synth/regulator_5v.py
+```
+
+El script genera el proyecto en un directorio temporal, comprueba que existan al menos un esquema y una placa KiCad, y ejecuta ERC y DRC, mostrando las salidas y las rutas de los informes. El script falla si la generación no produce los archivos esperados o si los comandos de KiCad no pueden ejecutarse; **un código de salida cero no significa que ERC/DRC estén libres de infracciones**. Revisa los informes y el diseño en KiCad antes de considerar fabricar la placa. La referencia de 5 V es una base de integración, no un diseño certificado ni listo para producción.
+
+Para habilitar el workflow, registra un runner autohospedado aislado con las tres etiquetas indicadas y ejecútalo manualmente desde la pestaña Actions. No registres como runner una máquina personal o de producción sin evaluar los riesgos de ejecutar código del repositorio.
+
