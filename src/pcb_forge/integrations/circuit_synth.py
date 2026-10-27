@@ -93,7 +93,7 @@ def generate_from_source(
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise IntegrationUnavailable(f"Could not run Circuit-Synth source: {exc}") from exc
     generated = sorted(
-        str(path) for path in project_dir.glob("*.kicad*") if path.is_file()
+        str(path) for path in project_dir.rglob("*.kicad*") if path.is_file()
     )
     return {
         "returncode": completed.returncode,
