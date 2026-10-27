@@ -4,7 +4,7 @@ import logging
 from mcp.server.fastmcp import FastMCP
 
 from pcb_forge.config import Settings
-from pcb_forge.integrations.manufacturing import export_gerbers
+from pcb_forge.integrations.manufacturing import export_manufacturing
 from pcb_forge.orchestrator import Orchestrator
 
 settings = Settings.from_env()
@@ -44,7 +44,7 @@ def pcb_validate_project(name: str) -> dict:
 
 @mcp.tool()
 def pcb_export_manufacturing(name: str) -> dict:
-    """Export Gerber files after validation; human review is still required."""
+    """Export Gerber, Excellon drill and STEP files after ERC/DRC; human review required."""
     try:
         project_dir = orchestrator.workspace.resolve_project(name)
         report = orchestrator.validate_project(name)
@@ -54,7 +54,7 @@ def pcb_export_manufacturing(name: str) -> dict:
                 "error": "Validation did not pass; manufacturing export was blocked.",
                 "validation": report,
             }
-        return export_gerbers(project_dir, settings.kicad_cli, settings.command_timeout)
+        return export_manufacturing(project_dir, settings.kicad_cli, settings.command_timeout)
     except Exception as exc:
         logger.exception("Manufacturing export failed")
         return {"ok": False, "error": str(exc)}
