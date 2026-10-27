@@ -28,11 +28,14 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-      - name: Install KiCad CLI, libraries, and Python bindings
+      - name: Install KiCad 9 CLI, libraries, and Python bindings
         run: |
           sudo apt-get update
-          # Ubuntu's KiCad package ships pcbnew bindings; there is no
-          # standalone python3-pcbnew package in the Noble repositories.
+          sudo apt-get install --no-install-recommends -y software-properties-common
+          # Circuit-Synth emits KiCad schematic format version 20250114 (KiCad 9).
+          # Ubuntu 24.04's stock KiCad 7 cannot parse that format.
+          sudo add-apt-repository --yes ppa:kicad/kicad-9.0-releases
+          sudo apt-get update
           sudo apt-get install --no-install-recommends -y kicad kicad-symbols kicad-footprints
           kicad-cli version
           test -f "${KICAD_SYMBOL_DIR}/Regulator_Linear.kicad_sym"
