@@ -1,4 +1,5 @@
 """Workspace creation and path confinement."""
+
 import re
 from pathlib import Path
 
