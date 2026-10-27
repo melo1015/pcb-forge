@@ -93,6 +93,60 @@ def _route_reference_pcb(board: Path) -> dict[str, object]:
     }
 
 
+def _export_fabrication_package(board: Path, output_dir: Path, cli: str) -> dict[str, object]:
+    """Export draft Gerbers and Excellon drills only after the manufacturing gate passes."""
+    export_dir = output_dir / "fabrication"
+    if export_dir.exists():
+        shutil.rmtree(export_dir)
+    export_dir.mkdir(parents=True)
+    commands = [
+        [
+            cli, "pcb", "export", "gerbers",
+            "--layers", "F.Cu,B.Cu,F.Mask,B.Mask,F.Silkscreen,Edge.Cuts",
+            "-o", str(export_dir), str(board),
+        ],
+        [cli, "pcb", "export", "drill", "-o", str(export_dir), str(board)],
+    ]
+    results = []
+    for command in commands:
+        try:
+            completed = subprocess.run(
+                command, capture_output=True, text=True, timeout=180, check=False
+            )
+            results.append({
+                "command": command,
+                "returncode": completed.returncode,
+                "stdout": completed.stdout[-3000:],
+                "stderr": completed.stderr[-3000:],
+            })
+        except subprocess.TimeoutExpired:
+            results.append({
+                "command": command,
+                "returncode": 124,
+                "stdout": "",
+                "stderr": "KiCad fabrication export timed out",
+            })
+    gerbers = sorted(str(path) for path in export_dir.glob("*.gbr"))
+    drills = sorted(str(path) for path in export_dir.glob("*.drl"))
+    ok = (
+        all(item["returncode"] == 0 for item in results)
+        and bool(gerbers)
+        and bool(drills)
+    )
+    return {
+        "ready": ok,
+        "status": "draft-fabrication-package" if ok else "export-failed",
+        "directory": str(export_dir),
+        "gerber_files": gerbers,
+        "drill_files": drills,
+        "commands": results,
+        "warning": (
+            "Draft fabrication outputs only; obtain electrical, thermal, footprint, "
+            "and fabrication-house review before ordering boards."
+        ),
+    }
+
+
 def _normalize_root_labels(schematics: list[Path]) -> dict[str, object]:
     """Circuit-Synth emits hierarchical labels on the root sheet; make them global.
 
@@ -306,6 +360,13 @@ def main() -> int:
                     f"DRC reported {item['unconnected_items']} unconnected pads"
                 )
 
+    manufacturing_gate = _manufacturing_gate(
+        quality, quality_failures, fallback_used, routing_succeeded
+    )
+    fabrication_package = None
+    if manufacturing_gate["ready"] and boards:
+        fabrication_package = _export_fabrication_package(boards[0], output_dir, cli)
+
     summary = {
         "generation": result,
         "schematic_normalization": normalization,
@@ -322,9 +383,8 @@ def main() -> int:
             ],
             "failures": quality_failures,
         },
-        "manufacturing_gate": _manufacturing_gate(
-            quality, quality_failures, fallback_used, routing_succeeded
-        ),
+        "manufacturing_gate": manufacturing_gate,
+        "fabrication_package": fabrication_package,
         "quality_gate": {
             "passed": not quality_failures,
             "counts": quality,
@@ -352,6 +412,9 @@ def main() -> int:
         return 1
     if quality_failures:
         print("ERC/DRC quality gate failed: " + "; ".join(quality_failures), file=sys.stderr)
+        return 1
+    if manufacturing_gate["ready"] and not (fabrication_package and fabrication_package.get("ready")):
+        print("Manufacturing gate passed but Gerber/drill export failed.", file=sys.stderr)
         return 1
     return 0
 
