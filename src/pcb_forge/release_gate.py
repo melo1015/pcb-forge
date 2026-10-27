@@ -24,7 +24,7 @@ class EvidenceItem(BaseModel):
     details: str | None = None
 
     @model_validator(mode="after")
-    def successful_evidence_must_be_traceable(self) -> "EvidenceItem":
+    def successful_evidence_must_be_traceable(self) -> EvidenceItem:
         if self.passed is True and (
             not self.source or not (self.artifact or self.details)
         ):
