@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 import pytest
 
-from pcb_forge.integrations.circuit_synth import IntegrationUnavailable, generate
+from pcb_forge.integrations.circuit_synth import (\n    IntegrationUnavailable,\n    generate,\n    generate_from_source,\n)
 from pcb_forge.integrations.kicad_cli import validate_project
 from pcb_forge.integrations.manufacturing import export_manufacturing
 
@@ -98,3 +98,36 @@ def test_manufacturing_export_requires_board(tmp_path: Path):
 
     assert result["ok"] is False
     assert result["outputs"] == []
+
+
+
+def test_native_circuit_synth_backend_runs_reviewed_module_in_subprocess(tmp_path: Path):
+    source = tmp_path / "design.py"
+    source.write_text("def build_circuit(): pass\\n", encoding="utf-8")
+    (tmp_path / "demo.kicad_pcb").write_text("board", encoding="utf-8")
+    completed = CompletedProcess(
+        args=["python"], returncode=0, stdout="generated", stderr=""
+    )
+
+    with patch(
+        "pcb_forge.integrations.circuit_synth.subprocess.run", return_value=completed
+    ) as run:
+        result = generate_from_source(tmp_path, source, timeout=45)
+
+    assert result["ok"] is True
+    assert result["adapter_contract"] == "circuit-synth-python-module-v1"
+    args, kwargs = run.call_args
+    assert args[0][1].endswith("circuit_synth_runner.py")
+    assert args[0][2] == str(source)
+    assert kwargs["shell"] is False
+    assert kwargs["timeout"] == 45
+
+
+def test_native_circuit_synth_backend_rejects_source_outside_workspace(tmp_path: Path):
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    external_source = tmp_path / "untrusted.py"
+    external_source.write_text("print('not run')\\n", encoding="utf-8")
+
+    with pytest.raises(IntegrationUnavailable, match="inside the project workspace"):
+        generate_from_source(workspace, external_source)
