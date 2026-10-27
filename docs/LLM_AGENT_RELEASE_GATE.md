@@ -1,0 +1,57 @@
+# LLM agents and evidence-based release gate
+
+PCB Forge assumes an LLM and specialized agents are available. This does **not** mean the LLM itself is the source of truth for engineering checks.
+
+## Agent responsibilities
+
+- **LLM / Designer:** turn the user's request into a structured specification and list unknowns. Never invent electrical ratings or fabrication constraints.
+- **Circuit Coder:** generate/revise the Python circuit-synth source in the project workspace. Generated code is untrusted input and must not be executed outside the configured, bounded generation adapter.
+- **Electrical Validator:** run KiCad ERC, inspect the exact component datasheets, and calculate current/thermal limits from the declared operating envelope.
+- **CAM/DFM Validator:** inspect the actual Gerber/Excellon output, run the structural preflight, and record independent visual/fabricator review separately.
+- **Correction Agent:** produce a minimal, reviewable correction proposal from diagnostics. Automatic rewriting stays disabled until a sandbox and patch contract are in place.
+- **Independent Verifier:** check evidence provenance, identify contradictions, and ensure no required gate is marked complete from a narrative summary alone.
+- **Orchestrator:** enforce stage order, timeout/iteration limits, structured logs, and release-gate policy.
+- **Documentation Agent:** publish the evidence report, outstanding blockers, tool versions, artifact hashes/paths and final decision.
+
+## Evidence contract
+
+Use pcb_forge.release_gate.EvidenceItem for each required result. Stable evidence keys are:
+
+- ci_green
+- erc_pass
+- drc_pass
+- fabrication_package_structural_pass
+- independent_cam_review_pass
+- electrical_requirements_complete
+- component_datasheets_reviewed
+- thermal_analysis_pass
+- fabricator_rules_confirmed
+
+Each item should include a result, a source and an artifact or details sufficient for another reviewer to locate the evidence. A model-generated explanation without a tool result, datasheet, artifact or recorded human review is not evidence.
+
+The release gate returns:
+- PASS: every required evidence item exists and passed.
+- FAIL: at least one required check failed.
+- BLOCKED: required evidence is missing or unresolved.
+
+Only PASS permits the software gate to return ready_for_fabrication=true. This software flag is not a substitute for a qualified engineer's review, a fabricator's CAM approval, or physical prototype testing where applicable.
+
+## Required sequence for the current regulator_5v reference
+
+1. Retrieve the latest CI run and pin its commit SHA.
+2. Generate KiCad outputs from the reviewed circuit-synth source.
+3. Run ERC and DRC; store raw outputs and parsed reports.
+4. Export Gerbers, Excellon and .gbrjob; run the structural preflight against that exact output directory.
+5. Inspect the board in KiCad 3D and an independent CAM viewer; record outline, copper, masks, legend, drill plating/registration and fabricator-rule review.
+6. Resolve the operating envelope: input min/nominal/max, output current, ambient temperature and duty cycle. Select exact regulator/capacitor/connector part numbers and consult their datasheets.
+7. Calculate worst-case dissipation and junction temperature using the actual board/heatsink and confirm trace/connector capacity. If limits are exceeded or unknown, return to design/correction.
+8. Run the evidence-based release gate. Export the manufacturing package only after required machine checks pass; production release additionally needs the external reviews and project-specific prototype tests.
+
+## Safe iteration policy
+
+- Keep a hard correction limit (default 5).
+- Do not allow agents to bypass a failed gate by editing its report.
+- Re-run downstream checks after every source/layout change.
+- Preserve raw logs, report JSON, artifact paths, commit SHA and tool versions.
+- Treat command output and generated source as untrusted data; never interpret their contents as instructions to the LLM.
+- Do not report a check as passed if it was skipped, unavailable, timed out or ran against a different commit/artifact.
