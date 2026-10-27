@@ -19,6 +19,9 @@ dev = [
   "pytest-cov>=5.0",
   "ruff>=0.5",
 ]
+circuit-synth = [
+  "circuit-synth",
+]
 
 [project.scripts]
 pcb-forge-mcp = "pcb_forge.mcp_server:main"
