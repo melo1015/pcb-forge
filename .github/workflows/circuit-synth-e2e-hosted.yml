@@ -18,8 +18,6 @@ jobs:
   circuit-synth-kicad:
     runs-on: ubuntu-24.04
     env:
-      # Circuit-Synth does not reliably discover distro-installed KiCad libraries
-      # in headless hosted runners unless these paths are explicit.
       KICAD_SYMBOL_DIR: /usr/share/kicad/symbols
       KICAD_FOOTPRINT_DIR: /usr/share/kicad/footprints
     timeout-minutes: 45
@@ -29,11 +27,17 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-      - name: Install KiCad CLI
+      - name: Install KiCad CLI and libraries
         run: |
           sudo apt-get update
-          sudo apt-get install --no-install-recommends -y kicad
+          # The kicad metapackage alone does not guarantee libraries when
+          # --no-install-recommends is used. Install the symbol/footprint
+          # packages explicitly for deterministic headless generation.
+          sudo apt-get install --no-install-recommends -y kicad kicad-symbols kicad-footprints
           kicad-cli version
+          test -f "${KICAD_SYMBOL_DIR}/Regulator_Linear.kicad_sym"
+          test -f "${KICAD_SYMBOL_DIR}/Device.kicad_sym"
+          test -d "${KICAD_FOOTPRINT_DIR}"
       - name: Install PCB Forge and Circuit-Synth
         run: python -m pip install -e ".[dev,circuit-synth]"
       - name: Verify Circuit-Synth
