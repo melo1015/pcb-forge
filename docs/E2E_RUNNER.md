@@ -5,8 +5,9 @@ Circuit-Synth E2E has two execution paths:
 
 - **Hosted Linux (recommended first):** workflow
   [Circuit-Synth + KiCad E2E (hosted Linux)](../.github/workflows/circuit-synth-e2e-hosted.yml)
-  installs KiCad CLI and libraries on a disposable GitHub-hosted Ubuntu 24.04
-  runner, installs Circuit-Synth, generates the reference project, runs ERC/DRC,
+  installs KiCad 9 CLI and libraries on a disposable GitHub-hosted Ubuntu 24.04
+  runner (Circuit-Synth emits KiCad 9 schematic syntax), installs Circuit-Synth,
+  generates the reference project, runs ERC/DRC,
   and uploads artifacts. It runs on relevant pushes to `main` and can also be
   dispatched manually. No self-hosted runner registration is needed.
 - **Self-hosted Linux (optional):** workflow
@@ -56,7 +57,7 @@ and dependencies as untrusted until reviewed.
 
 Requirements:
 
-- Linux supported by the installed KiCad package.
+- Linux with KiCad 9 or newer; the generated schematic uses format version 20250114.
 - Python 3.12 and pip.
 - `kicad-cli` available on PATH; verify with `kicad-cli version`.
 - KiCad's `pcbnew` Python bindings available to the system Python when the
@@ -64,7 +65,7 @@ Requirements:
 - Outbound network access to GitHub and Python package indexes during setup/job.
 - Enough disk space for Python packages and generated KiCad files.
 
-Install KiCad using the official instructions for your Linux distribution:
+Install KiCad 9 or newer using the official instructions for your Linux distribution:
 https://www.kicad.org/download/linux/
 
 ## 4. Register the self-hosted runner
