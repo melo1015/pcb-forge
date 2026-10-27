@@ -74,6 +74,28 @@ def _normalize_root_labels(schematics: list[Path]) -> dict[str, object]:
     return {"mode": "root-hierarchical-to-global-label-normalization", "labels_normalized": changed}
 
 
+def _manufacturing_gate(
+    quality: list[dict[str, object]],
+    quality_failures: list[str],
+    fallback_used: bool,
+) -> dict[str, object]:
+    """Report manufacturability separately from a successful integration test."""
+    unconnected = [
+        int(item["unconnected_items"])
+        for item in quality
+        if item.get("kind") == "DRC"
+        and isinstance(item.get("unconnected_items"), int)
+        and item["unconnected_items"] != 0
+    ]
+    blockers = (
+        (["PCB fallback created an unrouted placement seed"] if fallback_used else [])
+        + [f"DRC reports {count} unconnected pads" for count in unconnected]
+        + quality_failures
+    )
+    ready = not blockers and any(item.get("kind") == "DRC" for item in quality)
+    return {"passed": ready, "ready": ready, "blocking_reasons": blockers}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("source", type=Path, help="Trusted Circuit-Synth Python source")
@@ -253,35 +275,9 @@ def main() -> int:
             ],
             "failures": quality_failures,
         },
-        "manufacturing_gate": {
-            "passed": (
-                not fallback_used
-                and not quality_failures
-                and all(
-                    item["kind"] != "DRC"
-                    or item["unconnected_items"] == 0
-                    for item in quality
-                )
-            ),
-            "ready": (
-                not fallback_used
-                and not quality_failures
-                and all(
-                    item["kind"] != "DRC"
-                    or item["unconnected_items"] == 0
-                    for item in quality
-                )
-            ),
-            "blocking_reasons": (
-                (["PCB fallback created an unrouted placement seed"] if fallback_used else [])
-                + [
-                    f"DRC reports {item['unconnected_items']} unconnected pads"
-                    for item in quality
-                    if item["kind"] == "DRC" and item["unconnected_items"] not in (0, None)
-                ]
-                + quality_failures
-            ),
-        },
+        "manufacturing_gate": _manufacturing_gate(
+            quality, quality_failures, fallback_used
+        ),
         "quality_gate": {
             "passed": not quality_failures,
             "counts": quality,
