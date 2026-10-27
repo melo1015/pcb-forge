@@ -17,6 +17,11 @@ permissions:
 jobs:
   circuit-synth-kicad:
     runs-on: ubuntu-24.04
+    env:
+      # Circuit-Synth does not reliably discover distro-installed KiCad libraries
+      # in headless hosted runners unless these paths are explicit.
+      KICAD_SYMBOL_DIR: /usr/share/kicad/symbols
+      KICAD_FOOTPRINT_DIR: /usr/share/kicad/footprints
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
