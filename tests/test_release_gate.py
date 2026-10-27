@@ -1,7 +1,7 @@
 from pcb_forge.release_gate import (
+    REQUIRED_RELEASE_EVIDENCE,
     EvidenceItem,
     GateStatus,
-    REQUIRED_RELEASE_EVIDENCE,
     evaluate_release_gate,
 )
 
