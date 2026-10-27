@@ -2,7 +2,6 @@
 from pathlib import Path
 
 from pcb_forge.integrations.kicad_cli import KiCadUnavailable, run_cli
-from pcb_forge.models import Diagnostic
 
 
 def export_gerbers(project_dir: Path, cli_path: str, timeout: int = 120) -> dict:
@@ -14,10 +13,26 @@ def export_gerbers(project_dir: Path, cli_path: str, timeout: int = 120) -> dict
     outputs = []
     for board in boards:
         try:
-            result = run_cli(cli_path, ["pcb", "export", "gerbers", "-o", str(output_dir) + "/", str(board)], project_dir, timeout)
+            result = run_cli(
+                cli_path,
+                ["pcb", "export", "gerbers", "-o", str(output_dir) + "/", str(board)],
+                project_dir,
+                timeout,
+            )
         except KiCadUnavailable as exc:
             return {"ok": False, "error": str(exc), "outputs": outputs}
         if result.returncode != 0:
-            return {"ok": False, "error": (result.stderr or result.stdout)[-4000:], "outputs": outputs}
-        outputs.extend(str(p) for p in output_dir.iterdir() if p.is_file())
-    return {"ok": bool(outputs), "outputs": sorted(set(outputs)), "warning": "Verify layer selection, drill files, board outline and manufacturer rules before ordering."}
+            return {
+                "ok": False,
+                "error": (result.stderr or result.stdout)[-4000:],
+                "outputs": outputs,
+            }
+        outputs.extend(str(path) for path in output_dir.iterdir() if path.is_file())
+    return {
+        "ok": bool(outputs),
+        "outputs": sorted(set(outputs)),
+        "warning": (
+            "Verify layer selection, drill files, board outline and manufacturer rules "
+            "before ordering."
+        ),
+    }
