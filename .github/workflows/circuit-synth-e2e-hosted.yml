@@ -10,6 +10,7 @@ on:
       - "src/pcb_forge/integrations/**"
       - "examples/circuit_synth/**"
       - "scripts/run_circuit_synth_e2e.py"
+      - "scripts/create_board_from_netlist.py"
 
 permissions:
   contents: read
@@ -27,17 +28,16 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-      - name: Install KiCad CLI and libraries
+      - name: Install KiCad CLI, libraries, and Python bindings
         run: |
           sudo apt-get update
-          # The kicad metapackage alone does not guarantee libraries when
-          # --no-install-recommends is used. Install the symbol/footprint
-          # packages explicitly for deterministic headless generation.
-          sudo apt-get install --no-install-recommends -y kicad kicad-symbols kicad-footprints
+          # Explicit packages are required when recommends are disabled.
+          sudo apt-get install --no-install-recommends -y kicad kicad-symbols kicad-footprints python3-pcbnew
           kicad-cli version
           test -f "${KICAD_SYMBOL_DIR}/Regulator_Linear.kicad_sym"
           test -f "${KICAD_SYMBOL_DIR}/Device.kicad_sym"
           test -d "${KICAD_FOOTPRINT_DIR}"
+          /usr/bin/python3 -c "import pcbnew; print('KiCad pcbnew bindings OK')"
       - name: Install PCB Forge and Circuit-Synth
         run: python -m pip install -e ".[dev,circuit-synth]"
       - name: Verify Circuit-Synth
