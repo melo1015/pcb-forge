@@ -49,3 +49,58 @@ def generate(project_dir: Path, prompt: str, command: str, timeout: int = 120) -
             str(path) for path in project_dir.glob("*.kicad*") if path.is_file()
         ),
     }
+
+
+
+def generate_from_source(
+    project_dir: Path, source_file: Path, timeout: int = 120, python_executable: str | None = None
+) -> dict:
+    """Generate KiCad files from a reviewed Circuit-Synth Python module.
+
+    The source must be inside project_dir and expose build_circuit(), returning an
+    object with generate_kicad_project(project_name). This is not a sandbox: only
+    execute source code that has been reviewed and explicitly trusted.
+    """
+    import sys
+
+    project_dir = project_dir.resolve()
+    source_file = source_file.resolve()
+    try:
+        source_file.relative_to(project_dir)
+    except ValueError as exc:
+        raise IntegrationUnavailable(
+            "Circuit-Synth source must be located inside the project workspace."
+        ) from exc
+    if not source_file.is_file() or source_file.suffix != ".py":
+        raise IntegrationUnavailable("Circuit-Synth source must be an existing .py file.")
+    runner = Path(__file__).with_name("circuit_synth_runner.py")
+    command = [
+        python_executable or sys.executable,
+        str(runner),
+        str(source_file),
+        str(project_dir),
+    ]
+    try:
+        completed = subprocess.run(
+            command,
+            cwd=project_dir,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+            shell=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise IntegrationUnavailable(f"Could not run Circuit-Synth source: {exc}") from exc
+    generated = sorted(
+        str(path) for path in project_dir.glob("*.kicad*") if path.is_file()
+    )
+    return {
+        "returncode": completed.returncode,
+        "stdout": completed.stdout[-8000:],
+        "stderr": completed.stderr[-8000:],
+        "adapter_contract": "circuit-synth-python-module-v1",
+        "source_file": str(source_file),
+        "generated_files_detected": generated,
+        "ok": completed.returncode == 0 and bool(generated),
+    }
