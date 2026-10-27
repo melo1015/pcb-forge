@@ -44,7 +44,7 @@ The fallback alone does not create copper tracks. For the exact 5 V reference
 design only, the E2E then runs
 [`scripts/route_reference_regulator.py`](../scripts/route_reference_regulator.py).
 That guarded router checks expected references, pad numbers, and net names before
-placing explicit VIN/VOUT tracks on F.Cu and GND tracks on B.Cu. It refuses to
+placing explicit VIN/GND tracks on B.Cu and VOUT tracks on F.Cu. It refuses to
 run on a board that already contains tracks, and is not a general-purpose
 autorouter. The result must pass KiCad DRC with zero violations and zero
 unconnected pads before the automated manufacturing gate can pass. This still
