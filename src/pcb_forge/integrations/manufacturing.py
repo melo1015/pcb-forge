@@ -1,6 +1,7 @@
 """Guarded KiCad manufacturing export helpers."""
 from pathlib import Path
 
+from pcb_forge.integrations.cam_preflight import validate_package
 from pcb_forge.integrations.kicad_cli import KiCadUnavailable, run_cli
 
 
@@ -49,14 +50,32 @@ def export_manufacturing(project_dir: Path, cli_path: str, timeout: int = 120) -
             elif step_file.is_file():
                 outputs.append(str(step_file))
 
+    preflight_reports = []
+    for board in boards:
+        board_root = root / board.stem
+        report = validate_package(board_root)
+        preflight_reports.append(report)
+        if not report["passed"]:
+            return {
+                "ok": False,
+                "error": "Manufacturing export completed, but structural CAM preflight failed.",
+                "outputs": sorted(set(outputs)),
+                "commands_run": commands_run,
+                "cam_preflight": preflight_reports,
+                "ready_for_manufacturing": False,
+            }
+
     return {
         "ok": bool(outputs),
         "outputs": sorted(set(outputs)),
         "commands_run": commands_run,
+        "cam_preflight": preflight_reports,
+        "ready_for_manufacturing": False,
         "warning": (
-            "Review Gerber layers, Excellon drill files, board outline, STEP model and "
-            "manufacturer design rules before ordering. A successful export is not "
-            "certification that the board is safe or manufacturable."
+            "Structural CAM preflight passed. This does not certify geometry, "
+            "electrical safety, thermal performance or manufacturer-specific DFM. "
+            "Review the package in an independent CAM viewer and obtain fabricator "
+            "approval before ordering."
         ),
     }
 

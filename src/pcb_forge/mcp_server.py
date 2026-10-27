@@ -7,6 +7,7 @@ from pcb_forge.config import Settings
 from pcb_forge.integrations.circuit_synth import generate_from_source
 from pcb_forge.integrations.manufacturing import export_manufacturing
 from pcb_forge.orchestrator import Orchestrator
+from pcb_forge.release_gate import EvidenceItem, evaluate_release_gate
 
 settings = Settings.from_env()
 orchestrator = Orchestrator(settings)
@@ -64,6 +65,42 @@ def pcb_validate_project(name: str) -> dict:
 
 
 @mcp.tool()
+def pcb_record_project_evidence(name: str, evidence: list[dict]) -> dict:
+    """Persist tool/agent evidence for a project and bind it to the current design fingerprint."""
+    try:
+        return orchestrator.record_project_evidence(name, evidence)
+    except Exception as exc:
+        logger.exception("Recording project evidence failed")
+        return {"ok": False, "error": str(exc)}
+
+
+@mcp.tool()
+def pcb_evaluate_project_release_gate(name: str) -> dict:
+    """Evaluate final release using evidence stored for this exact project revision."""
+    try:
+        return {"ok": True, "report": orchestrator.evaluate_project_release_gate(name)}
+    except Exception as exc:
+        logger.exception("Project release gate evaluation failed")
+        return {"ok": False, "error": str(exc), "ready_for_fabrication": False}
+
+
+@mcp.tool()
+def pcb_evaluate_release_gate(evidence: list[dict]) -> dict:
+    """Evaluate fabrication release from auditable evidence supplied by specialized agents.
+
+    Each evidence item must contain a stable key, a boolean passed value (or null if
+    unknown), and traceability for any claimed pass. Missing evidence blocks release.
+    """
+    try:
+        items = [EvidenceItem.model_validate(item) for item in evidence]
+        report = evaluate_release_gate(items)
+        return {"ok": True, "report": report.model_dump(mode="json")}
+    except Exception as exc:
+        logger.exception("Release gate evaluation failed")
+        return {"ok": False, "error": str(exc), "ready_for_fabrication": False}
+
+
+@mcp.tool()
 def pcb_export_manufacturing(name: str) -> dict:
     """Export Gerber, Excellon drill and STEP files after ERC/DRC; human review required."""
     try:
@@ -75,7 +112,17 @@ def pcb_export_manufacturing(name: str) -> dict:
                 "error": "Validation did not pass; manufacturing export was blocked.",
                 "validation": report,
             }
-        return export_manufacturing(project_dir, settings.kicad_cli, settings.command_timeout)
+        gate = orchestrator.evaluate_project_pre_export_gate(name)
+        if gate.get("status") != "PASS":
+            return {
+                "ok": False,
+                "error": "Pre-export release gate is not PASS; manufacturing export was blocked.",
+                "pre_export_gate": gate,
+                "validation": report,
+            }
+        result = export_manufacturing(project_dir, settings.kicad_cli, settings.command_timeout)
+        result["pre_export_gate"] = gate
+        return result
     except Exception as exc:
         logger.exception("Manufacturing export failed")
         return {"ok": False, "error": str(exc)}
