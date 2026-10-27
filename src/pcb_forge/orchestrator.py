@@ -2,6 +2,7 @@
 import hashlib
 import json
 from pathlib import Path
+from urllib.parse import urlparse
 
 from pcb_forge.agents.base import CodeGenerationAgent, DesignAgent, ValidationAgent
 from pcb_forge.config import Settings
@@ -58,12 +59,50 @@ class Orchestrator:
         except (OSError, ValueError, TypeError) as exc:
             raise ValueError(f"Invalid project evidence file: {exc}") from exc
 
+    @staticmethod
+    def _validate_evidence_provenance(project_dir: Path, item: EvidenceItem) -> None:
+        """Reject passing evidence whose referenced artifact cannot be located."""
+        if item.passed is not True:
+            return
+        if item.artifact:
+            parsed = urlparse(item.artifact)
+            if parsed.scheme:
+                if parsed.scheme != "https" or not parsed.netloc:
+                    raise ValueError(
+                        f"Evidence '{item.key}' artifact URL must use HTTPS."
+                    )
+                return
+            artifact_path = (project_dir / item.artifact).resolve()
+            try:
+                artifact_path.relative_to(project_dir.resolve())
+            except ValueError as exc:
+                raise ValueError(
+                    f"Evidence '{item.key}' artifact must be inside the project workspace."
+                ) from exc
+            if not artifact_path.is_file():
+                raise ValueError(
+                    f"Evidence '{item.key}' artifact does not exist: {item.artifact}"
+                )
+            if artifact_path.name == "release_evidence.json":
+                raise ValueError(
+                    "release_evidence.json cannot be used as proof of its own evidence."
+                )
+            return
+        if item.source and item.source.startswith("human_review:") and item.details:
+            return
+        raise ValueError(
+            f"Evidence '{item.key}' must reference an existing project artifact, "
+            "an HTTPS artifact URL, or a documented human_review source."
+        )
+
     def record_project_evidence(self, name: str, evidence: list[dict]) -> dict:
         """Persist project-scoped agent/tool evidence against the current design hash."""
         project_dir = self.workspace.resolve_project(name)
         items = [EvidenceItem.model_validate(item) for item in evidence]
         # Validate duplicate keys and schema before persisting anything.
         evaluate_release_gate(items)
+        for item in items:
+            self._validate_evidence_provenance(project_dir, item)
         path = project_dir / "release_evidence.json"
         payload = {
             "design_fingerprint": self._project_fingerprint(project_dir),
