@@ -43,7 +43,7 @@ def test_release_gate_passes_only_with_all_required_evidence():
 
 def test_release_gate_reports_failed_evidence():
     evidence = [
-        EvidenceItem(key=key, passed=True, source="tool-or-review")
+        EvidenceItem(key=key, passed=True, source="tool-or-review", details="review evidence recorded")
         for key in REQUIRED_RELEASE_EVIDENCE
     ]
     evidence[0] = EvidenceItem(key="ci_green", passed=False, source="GitHub Actions")
