@@ -3,7 +3,6 @@
 import re
 from pathlib import Path
 
-
 _NAME_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$")
 
 
