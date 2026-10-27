@@ -44,17 +44,23 @@ def build_circuit():
         footprint="Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical",
     )
 
+    # Power flags tell ERC that the external input and ground rails are driven.
+    vin_flag = Component(symbol="power:PWR_FLAG", ref="#FLG01", value="PWR_FLAG")
+    gnd_flag = Component(symbol="power:PWR_FLAG", ref="#FLG02", value="PWR_FLAG")
+
     # Circuit-Synth Net.__iadd__ accepts one pin at a time; comma-separated
     # values would form a tuple and fail during generation.
     vin += regulator[1]
     vin += input_cap[1]
     vin += input_connector[1]
+    vin += vin_flag[1]
 
     gnd += regulator[2]
     gnd += input_cap[2]
     gnd += output_cap[2]
     gnd += input_connector[2]
     gnd += output_connector[2]
+    gnd += gnd_flag[1]
 
     vout += regulator[3]
     vout += output_cap[1]
