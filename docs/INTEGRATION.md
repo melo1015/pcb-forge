@@ -42,7 +42,34 @@ El adaptador actual llama a un **wrapper externo de confianza** con el contrato 
 
 La siguiente integración real debe añadir un backend versionado que transforme la especificación en código de circuito revisable, lo ejecute en un entorno aislado y verifique que se generaron los archivos KiCad esperados. Hasta entonces, una descripción en lenguaje natural por sí sola **no produce automáticamente un diseño electrónico fiable**.
 
-## 4. Validación y fabricación
+## 4. Backend directo para un módulo Circuit-Synth revisado
+
+PCB Forge incorpora la herramienta MCP `pcb_generate_from_circuit_synth_source(name, source_filename)`. Esta ruta no usa el wrapper genérico: ejecuta un módulo Python con el Circuit-Synth instalado en el mismo intérprete configurado para PCB Forge.
+
+Flujo recomendado:
+
+1. Crea el proyecto con `pcb_create_workspace`.
+2. Añade al directorio del proyecto un archivo `.py` revisado, por ejemplo `design.py`.
+3. El módulo debe exponer `build_circuit()`, que devuelve un objeto Circuit-Synth con el método `generate_kicad_project(project_name)`.
+4. Llama a `pcb_generate_from_circuit_synth_source` con el nombre del proyecto y `design.py`.
+5. Confirma que se detectan archivos KiCad y ejecuta `pcb_validate_project` antes de cualquier exportación.
+
+Contrato mínimo del módulo:
+
+```python
+def build_circuit():
+    # Construye y devuelve aquí un objeto Circuit-Synth válido.
+    # Implementa el circuito usando la API de la versión instalada.
+    return circuit
+```
+
+El ejemplo es una interfaz, no un circuito funcional. La sintaxis concreta para construir componentes, redes y alimentar el generador depende de la versión instalada de Circuit-Synth. Instala Circuit-Synth en un entorno compatible con su versión de Python y consulta la documentación de esa versión antes de escribir el módulo.
+
+**Seguridad:** el módulo se ejecuta en un proceso separado, pero esto no constituye un sandbox de seguridad. Solo uses código propio o revisado; no aceptes módulos arbitrarios de usuarios externos. La fuente debe estar dentro del workspace del proyecto. El backend devuelve error si la ejecución falla o no detecta archivos `.kicad*`.
+
+Esta integración genera desde código Circuit-Synth revisado; **no convierte por sí misma una descripción en lenguaje natural en un circuito**. La traducción automática de especificación a código Circuit-Synth y la prueba E2E con Circuit-Synth + KiCad reales siguen siendo tareas separadas.
+
+## 5. Validación y fabricación
 
 La herramienta `pcb_validate_project` ejecuta DRC para cada `.kicad_pcb` y ERC para cada `.kicad_sch`. La herramienta `pcb_export_manufacturing` bloquea la exportación si la validación no pasa y genera, por placa, esta estructura:
 
@@ -55,7 +82,7 @@ manufacturing/<nombre-placa>/
 
 Un código de salida cero indica que KiCad completó el comando; no garantiza que los archivos sean correctos ni que la placa sea fabricable. Revisa capas, unidades, contorno, taladros, stack-up, modelos 3D, reglas del fabricante y la lista de materiales antes de pedir producción. La salida STEP depende de la información disponible en la placa y de la versión/configuración de KiCad.
 
-## 5. Iniciar MCP y ejecutar pruebas
+## 6. Iniciar MCP y ejecutar pruebas
 
 ```bash
 pcb-forge-mcp
