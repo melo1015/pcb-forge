@@ -105,10 +105,19 @@ Expected contents under `artifacts/e2e/` include:
 - `e2e-summary.json`: generation result, PCB fallback details when used,
   command return codes, report paths, and captured command output.
 
-Review the reports rather than relying only on the job's exit code. A successful
-KiCad CLI invocation does not itself prove that the design has zero violations,
-is electrically correct, or is ready to manufacture. The example is a starting
-point for integration testing, not a production-ready power supply.
+Review the reports rather than relying only on the job's exit code. The summary
+separates two outcomes:
+
+- `integration_gate.passed`: Circuit-Synth generation completed, KiCad reports
+  were created, ERC has zero errors/warnings, and DRC has zero geometry violations.
+- `manufacturing_gate.ready`: the board is not the fallback placement seed and
+  DRC reports zero unconnected pads as well as zero geometry violations.
+
+The hosted run currently exercises the fallback, so it can pass the integration
+gate while the manufacturing gate correctly remains **false**. This is intentional:
+the fallback creates no copper tracks, so its unconnected pads must not be hidden
+or treated as a production success. The example is a starting point for integration
+testing, not a production-ready power supply.
 
 ## 7. Run locally
 
