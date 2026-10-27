@@ -1,12 +1,34 @@
 # Circuit-Synth + KiCad E2E runner
 
-The regular CI verifies PCB Forge's Python tests and MCP import. The separate
-Circuit-Synth E2E workflow exercises real project generation and KiCad CLI
-commands; it is **not validated by the regular CI matrix**.
+The regular CI verifies PCB Forge's Python tests and MCP import. The real
+Circuit-Synth E2E has two execution paths:
 
-Workflow: [Circuit-Synth + KiCad E2E](../.github/workflows/circuit-synth-e2e.yml)
+- **Hosted Linux (recommended first):** workflow
+  [Circuit-Synth + KiCad E2E (hosted Linux)](../.github/workflows/circuit-synth-e2e-hosted.yml)
+  installs KiCad CLI on a disposable GitHub-hosted Ubuntu 24.04 runner, installs
+  Circuit-Synth, generates the reference project, runs ERC/DRC, and uploads
+  artifacts. It runs on relevant pushes to `main` and can also be dispatched
+  manually. No self-hosted runner registration is needed.
+- **Self-hosted Linux (optional):** workflow
+  [Circuit-Synth + KiCad E2E](../.github/workflows/circuit-synth-e2e.yml)
+  targets a trusted runner labeled `self-hosted`, `linux`, and
+  `pcb-forge-e2e`. Use this path if you need a pinned/local KiCad environment.
 
-## 1. Prepare a dedicated runner
+## 1. Hosted Linux run
+
+Open the repository's **Actions** tab and select **Circuit-Synth + KiCad E2E
+(hosted Linux)**. Click **Run workflow** to start it manually. The workflow
+installs KiCad using Ubuntu's package manager and installs PCB Forge with its
+development and Circuit-Synth extras. The job has a 45-minute timeout.
+
+When it finishes, download the artifact named
+`pcb-forge-circuit-synth-e2e-hosted` from the run's **Artifacts** section.
+GitHub retains it for 14 days. Inspect `e2e-summary.json`, the generated
+`.kicad_sch` and `.kicad_pcb` files, and each ERC/DRC report. A failed run
+should be debugged from the first failing workflow step; do not suppress the
+failure just to turn CI green.
+
+## 2. Prepare a dedicated self-hosted runner (optional)
 
 Use a dedicated Linux VM or disposable machine that you control. Do not register
 a self-hosted runner on a workstation containing personal files, credentials,
@@ -24,7 +46,7 @@ Requirements:
 Install KiCad using the official instructions for your Linux distribution:
 https://www.kicad.org/download/linux/
 
-## 2. Register the runner with the repository
+## 3. Register the self-hosted runner
 
 In GitHub, open **melo1015/pcb-forge → Settings → Actions → Runners → New self-hosted runner**.
 
@@ -36,27 +58,22 @@ In GitHub, open **melo1015/pcb-forge → Settings → Actions → Runners → Ne
    `self-hosted` and `linux` labels.
 4. Start the runner and confirm GitHub shows it as **Idle** and online.
 
-The workflow requires all three labels:
+The self-hosted workflow requires all three labels:
 `self-hosted`, `linux`, and `pcb-forge-e2e`. A runner without these labels
-will leave the job queued.
+will leave that job queued.
 
-## 3. Run the E2E workflow
+## 4. Run the self-hosted E2E workflow
 
 1. Open the repository's **Actions** tab.
-2. Select **Circuit-Synth + KiCad E2E**.
+2. Select **Circuit-Synth + KiCad E2E** (without the hosted Linux suffix).
 3. Click **Run workflow**, select `main`, and dispatch it.
 4. Watch the job logs. It verifies Python and KiCad, installs PCB Forge with its
    development and Circuit-Synth extras, checks the Circuit-Synth import, then
    generates the reference 5 V regulator project and invokes KiCad ERC/DRC.
 
-The workflow is manual-only (`workflow_dispatch`) and targets the dedicated
-runner labels above.
+This workflow is manual-only and targets the dedicated runner labels above.
 
-## 4. Download and review the result
-
-When the workflow finishes, download the artifact named
-`pcb-forge-circuit-synth-e2e` from the run's **Artifacts** section. GitHub
-retains it for 14 days.
+## 5. Expected outputs and review
 
 Expected contents under `artifacts/e2e/` include:
 
@@ -71,7 +88,7 @@ KiCad CLI invocation does not itself prove that the design has zero violations,
 is electrically correct, or is ready to manufacture. The example is a starting
 point for integration testing, not a production-ready power supply.
 
-## 5. Run locally
+## 6. Run locally
 
 From the repository root, in an environment with the project dependencies,
 Circuit-Synth, and KiCad CLI installed:
@@ -87,13 +104,14 @@ other files in the output directory backed up if they matter.
 
 ## Security and troubleshooting
 
-- **Do not use a persistent self-hosted runner for untrusted pull-request code.**
-  Keep this workflow manual and run it only against reviewed code on a trusted
+- The hosted workflow uses a fresh GitHub-hosted runner and avoids exposing a
+  personal workstation to repository code.
+- Do not use a persistent self-hosted runner for untrusted pull-request code.
+  Keep that workflow manual and run it only against reviewed code on a trusted
   branch. Prefer an ephemeral VM and destroy/rebuild it after the run.
-- If the job remains queued, verify that the runner is online and has all three
-  required labels.
-- If `kicad-cli version` fails, fix the system installation/PATH before
-  rerunning the workflow.
+- If the self-hosted job remains queued, verify that the runner is online and
+  has all three required labels.
+- If `kicad-cli version` fails, fix the system installation/PATH before rerunning.
 - If package installation fails, inspect the pip output and verify Python 3.12
   and network access.
 - If generation fails or no `.kicad_sch`/`.kicad_pcb` files appear, inspect
