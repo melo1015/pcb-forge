@@ -1,8 +1,15 @@
+import importlib.util
 import json
 import sys
 from pathlib import Path
 
-from scripts import run_circuit_synth_e2e
+SCRIPT_PATH = Path(__file__).resolve().parents[1] / "scripts" / "run_circuit_synth_e2e.py"
+SPEC = importlib.util.spec_from_file_location("run_circuit_synth_e2e", SCRIPT_PATH)
+if SPEC is None or SPEC.loader is None:
+    raise ImportError(f"Cannot load E2E script from {SCRIPT_PATH}")
+run_circuit_synth_e2e = importlib.util.module_from_spec(SPEC)
+sys.modules[SPEC.name] = run_circuit_synth_e2e
+SPEC.loader.exec_module(run_circuit_synth_e2e)
 
 
 def _prepare(monkeypatch, tmp_path: Path, result: dict) -> Path:
