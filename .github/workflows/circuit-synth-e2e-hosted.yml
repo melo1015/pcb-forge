@@ -1,0 +1,45 @@
+name: Circuit-Synth + KiCad E2E (hosted Linux)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/circuit-synth-e2e-hosted.yml"
+      - "pyproject.toml"
+      - "src/pcb_forge/integrations/**"
+      - "examples/circuit_synth/**"
+      - "scripts/run_circuit_synth_e2e.py"
+
+permissions:
+  contents: read
+
+jobs:
+  circuit-synth-kicad:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install KiCad CLI
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y kicad
+          kicad-cli version
+      - name: Install PCB Forge and Circuit-Synth
+        run: python -m pip install -e ".[dev,circuit-synth]"
+      - name: Verify Circuit-Synth
+        run: python -c "import circuit_synth; print('Circuit-Synth import OK')"
+      - name: Generate reference circuit and run ERC/DRC
+        run: python scripts/run_circuit_synth_e2e.py examples/circuit_synth/regulator_5v.py --output-dir artifacts/e2e
+      - name: Upload generated KiCad project and ERC/DRC reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pcb-forge-circuit-synth-e2e-hosted
+          path: artifacts/e2e/
+          if-no-files-found: warn
+          retention-days: 14
