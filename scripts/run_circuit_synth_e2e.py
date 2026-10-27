@@ -56,6 +56,43 @@ def _create_pcb_seed(schematic: Path, board: Path, cli: str) -> dict[str, object
     }
 
 
+def _route_reference_pcb(board: Path) -> dict[str, object]:
+    """Apply guarded, design-specific routing to the reference fallback board."""
+    helper = Path(__file__).resolve().with_name("route_reference_regulator.py")
+    candidates = [Path("/usr/bin/python3")]
+    system_python = shutil.which("python3")
+    if system_python:
+        candidates.append(Path(system_python))
+    python = next(
+        (
+            str(candidate) for candidate in candidates
+            if candidate.is_file()
+            and subprocess.run(
+                [str(candidate), "-c", "import pcbnew"],
+                capture_output=True, text=True, timeout=20, check=False,
+            ).returncode == 0
+        ),
+        None,
+    )
+    if python is None:
+        return {"ok": False, "error": "KiCad pcbnew bindings unavailable for routing"}
+    command = [python, str(helper), "--board", str(board)]
+    try:
+        completed = subprocess.run(
+            command, capture_output=True, text=True, timeout=180, check=False
+        )
+    except subprocess.TimeoutExpired:
+        return {"ok": False, "error": "Reference PCB routing timed out", "command": command}
+    return {
+        "ok": completed.returncode == 0,
+        "mode": "guarded-reference-regulator-routing",
+        "command": command,
+        "returncode": completed.returncode,
+        "stdout": completed.stdout[-4000:],
+        "stderr": completed.stderr[-4000:],
+    }
+
+
 def _normalize_root_labels(schematics: list[Path]) -> dict[str, object]:
     """Circuit-Synth emits hierarchical labels on the root sheet; make them global.
 
@@ -78,6 +115,7 @@ def _manufacturing_gate(
     quality: list[dict[str, object]],
     quality_failures: list[str],
     fallback_used: bool,
+    routing_succeeded: bool = False,
 ) -> dict[str, object]:
     """Report manufacturability separately from a successful integration test."""
     unconnected = [
@@ -88,7 +126,7 @@ def _manufacturing_gate(
         and item["unconnected_items"] != 0
     ]
     blockers = (
-        (["PCB fallback created an unrouted placement seed"] if fallback_used else [])
+        (["PCB fallback remains unrouted"] if fallback_used and not routing_succeeded else [])
         + [f"DRC reports {count} unconnected pads" for count in unconnected]
         + quality_failures
     )
@@ -150,6 +188,7 @@ def main() -> int:
     normalization = _normalize_root_labels(schematics)
     boards = sorted(project_dir.rglob("*.kicad_pcb"))
     fallback_result = None
+    routing_result = None
     if schematics and not boards:
         board_path = schematics[0].with_suffix(".kicad_pcb")
         fallback_result = _create_pcb_seed(schematics[0], board_path, cli)
@@ -185,6 +224,9 @@ def main() -> int:
         print(json.dumps(summary, indent=2, default=str))
         print("E2E requires at least one .kicad_sch and one .kicad_pcb.", file=sys.stderr)
         return 1
+
+    if fallback_result and fallback_result.get("ok") and boards:
+        routing_result = _route_reference_pcb(boards[0])
 
     reports = []
     for kind, files, command_prefix, suffix in (
@@ -244,7 +286,11 @@ def main() -> int:
             })
 
     fallback_used = bool(fallback_result and fallback_result.get("ok"))
+    routing_succeeded = bool(routing_result and routing_result.get("ok"))
     quality_failures = []
+    if fallback_used and not routing_succeeded:
+        detail = (routing_result or {}).get("error") or (routing_result or {}).get("stderr") or "routing step did not run"
+        quality_failures.append(f"Reference PCB routing failed: {detail}")
     for item in quality:
         if not item["counts_parsed"]:
             quality_failures.append(f"Could not parse {item['kind']} report counts")
@@ -255,7 +301,7 @@ def main() -> int:
         elif item["kind"] == "DRC":
             if item["violations"] != 0:
                 quality_failures.append(f"DRC reported {item['violations']} violations")
-            if item["unconnected_items"] and not fallback_used:
+            if item["unconnected_items"] and not (routing_result and routing_result.get("ok")):
                 quality_failures.append(
                     f"DRC reported {item['unconnected_items']} unconnected pads"
                 )
@@ -264,6 +310,7 @@ def main() -> int:
         "generation": result,
         "schematic_normalization": normalization,
         "pcb_fallback": fallback_result,
+        "pcb_routing": routing_result,
         "validation_commands": reports,
         "integration_gate": {
             "passed": not quality_failures,
@@ -276,7 +323,7 @@ def main() -> int:
             "failures": quality_failures,
         },
         "manufacturing_gate": _manufacturing_gate(
-            quality, quality_failures, fallback_used
+            quality, quality_failures, fallback_used, routing_succeeded
         ),
         "quality_gate": {
             "passed": not quality_failures,
@@ -290,10 +337,9 @@ def main() -> int:
         "schematics": [str(path) for path in schematics],
         "boards": [str(path) for path in boards],
         "note": (
-            "The PCB fallback, when used, creates an unrouted placement seed only. "
-            "A zero CLI return code does not prove the design is violation-free; "
-            "inspect ERC/DRC report contents and route/review the board before "
-            "manufacturing."
+            "The fallback is followed by a guarded, reference-design-specific routing "
+            "attempt. Automated ERC/DRC success is not a substitute for electrical, "
+            "thermal, footprint, and manufacturing review."
         ),
     }
     summary_path.write_text(json.dumps(summary, indent=2, default=str) + "\n", encoding="utf-8")
