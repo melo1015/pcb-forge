@@ -9,7 +9,6 @@ from pcb_forge.integrations.manufacturing import export_manufacturing
 from pcb_forge.orchestrator import Orchestrator
 from pcb_forge.release_gate import EvidenceItem, evaluate_release_gate
 
-
 settings = Settings.from_env()
 orchestrator = Orchestrator(settings)
 mcp = FastMCP("pcb-forge")
