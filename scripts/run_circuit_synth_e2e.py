@@ -31,7 +31,7 @@ def _create_pcb_seed(schematic: Path, board: Path, cli: str) -> dict[str, object
     if python is None:
         return {
             "ok": False,
-            "error": "KiCad pcbnew Python bindings unavailable; install python3-pcbnew.",
+            "error": "KiCad pcbnew Python bindings unavailable; install KiCad with pcbnew bindings.",
         }
     command = [
         python, str(helper), "--schematic", str(schematic),
@@ -53,6 +53,24 @@ def _create_pcb_seed(schematic: Path, board: Path, cli: str) -> dict[str, object
             "layout and must be reviewed/routed before manufacturing."
         ),
     }
+
+
+def _normalize_root_labels(schematics: list[Path]) -> dict[str, object]:
+    """Circuit-Synth emits hierarchical labels on the root sheet; make them global.
+
+    Root-sheet hierarchical labels require a parent sheet and produce false ERC
+    errors when used in a standalone single-sheet project. Global labels retain
+    the named electrical nets without requiring a parent sheet.
+    """
+    changed: dict[str, int] = {}
+    for schematic in schematics:
+        source = schematic.read_text(encoding="utf-8")
+        updated = source.replace("(hierarchical_label ", "(global_label ")
+        count = source.count("(hierarchical_label ")
+        if count:
+            schematic.write_text(updated, encoding="utf-8")
+            changed[str(schematic)] = count
+    return {"mode": "root-hierarchical-to-global-label-normalization", "labels_normalized": changed}
 
 
 def main() -> int:
@@ -106,6 +124,7 @@ def main() -> int:
         return 1
 
     schematics = sorted(project_dir.rglob("*.kicad_sch"))
+    normalization = _normalize_root_labels(schematics)
     boards = sorted(project_dir.rglob("*.kicad_pcb"))
     fallback_result = None
     if schematics and not boards:
@@ -116,6 +135,7 @@ def main() -> int:
         else:
             summary = {
                 "generation": result,
+                "schematic_normalization": normalization,
                 "pcb_fallback": fallback_result,
                 "validation_commands": [],
                 "schematics": [str(path) for path in schematics],
@@ -131,6 +151,7 @@ def main() -> int:
     if not schematics or not boards:
         summary = {
             "generation": result,
+            "schematic_normalization": normalization,
             "pcb_fallback": fallback_result,
             "validation_commands": [],
             "schematics": [str(path) for path in schematics],
@@ -177,6 +198,7 @@ def main() -> int:
 
     summary = {
         "generation": result,
+        "schematic_normalization": normalization,
         "pcb_fallback": fallback_result,
         "validation_commands": reports,
         "schematics": [str(path) for path in schematics],
@@ -184,7 +206,7 @@ def main() -> int:
         "note": (
             "The PCB fallback, when used, creates an unrouted placement seed only. "
             "A zero CLI return code does not prove the design is violation-free; "
-            "inspect the retained ERC/DRC reports and route/review the board before "
+            "inspect ERC/DRC report contents and route/review the board before "
             "manufacturing."
         ),
     }
