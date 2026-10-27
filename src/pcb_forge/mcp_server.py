@@ -6,8 +6,8 @@ from mcp.server.fastmcp import FastMCP
 from pcb_forge.config import Settings
 from pcb_forge.integrations.circuit_synth import generate_from_source
 from pcb_forge.integrations.manufacturing import export_manufacturing
-from pcb_forge.release_gate import EvidenceItem, evaluate_release_gate
 from pcb_forge.orchestrator import Orchestrator
+from pcb_forge.release_gate import EvidenceItem, evaluate_release_gate
 
 
 settings = Settings.from_env()
