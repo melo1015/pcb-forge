@@ -8,7 +8,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from pcb_forge.integrations.circuit_synth import generate_from_source
+from pcb_forge.integrations.circuit_synth import IntegrationUnavailable, generate_from_source
 
 
 def main() -> int:
@@ -41,9 +41,23 @@ def main() -> int:
     local_source = project_dir / source.name
     shutil.copy2(source, local_source)
 
-    result = generate_from_source(project_dir, local_source, timeout=600)
+    summary_path = output_dir / "e2e-summary.json"
+    try:
+        result = generate_from_source(project_dir, local_source, timeout=600)
+    except IntegrationUnavailable as exc:
+        result = {"ok": False, "error": str(exc), "source_file": str(local_source)}
     print(json.dumps(result, indent=2, default=str))
-    if not result["ok"]:
+
+    if not result.get("ok", False):
+        summary = {
+            "generation": result,
+            "validation_commands": [],
+            "schematics": [],
+            "boards": [],
+            "note": "Generation failed; ERC/DRC were not run.",
+        }
+        summary_path.write_text(json.dumps(summary, indent=2, default=str) + "\n", encoding="utf-8")
+        print(json.dumps(summary, indent=2, default=str))
         print("Circuit-Synth generation failed or produced no KiCad files.", file=sys.stderr)
         return 1
 
