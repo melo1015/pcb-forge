@@ -69,3 +69,26 @@ MCP workflow:
 5. After export, add `fabrication_package_structural_pass` evidence. Record independent CAM review and final fabricator confirmation separately; rerun `pcb_evaluate_project_release_gate(name)`.
 
 The pre-export gate intentionally excludes structural CAM preflight and independent CAM review because those checks require the exported package. The final release gate still requires all nine evidence keys. Passing pre-export does not set `ready_for_fabrication` to true. Do not submit fabricated or placeholder evidence merely to unblock a tool: the source/artifact must identify the actual run, report, datasheet or recorded human review.
+
+
+## Evidence provenance enforcement
+
+The orchestrator validates every item marked `passed: true` before storing it:
+
+- A project-relative `artifact` must resolve to an existing file inside that project's workspace. Paths escaping the workspace and `release_evidence.json` itself are rejected.
+- External artifact links must use HTTPS. The link is recorded as a reference, but this check does **not** prove the remote resource still exists or independently validate its contents; reviewers/agents must pin the run ID or commit and preserve the report where possible.
+- Evidence without an artifact is accepted only when `source` begins with `human_review:` and `details` records what was reviewed. This records a human attestation; it does not cryptographically verify the reviewer's identity.
+- Failed or unknown evidence does not need a passing artifact. Unknown, skipped, timed-out or unavailable checks must not be reported as passed.
+
+Example project-local evidence:
+
+```json
+{
+  "key": "erc_pass",
+  "passed": true,
+  "source": "kicad-cli:erc",
+  "artifact": "reports/erc-report.json"
+}
+```
+
+The report file must exist under the project directory before calling `pcb_record_project_evidence`. The agent pipeline should save raw tool output and normalized JSON first, then submit references to those files. For CI, include a pinned HTTPS run URL and commit SHA; where practical, also download/preserve the workflow report in the project evidence directory. A green CI status from a different commit must not be reused.
