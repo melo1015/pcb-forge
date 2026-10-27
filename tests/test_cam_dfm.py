@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from scripts.validate_fabrication_package import validate_package
+from pcb_forge.integrations.cam_preflight import validate_package
 
 
 def _gerber(path: Path, body: str = "") -> None:
