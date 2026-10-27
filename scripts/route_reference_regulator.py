@@ -57,7 +57,7 @@ def route_board(board_path: Path) -> dict[str, object]:
     # placement seed. VIN/VOUT use F.Cu; GND uses B.Cu to avoid cross-net
     # intersections. Through-hole pads provide layer transitions.
     routes = [
-        ("VIN", pcbnew.F_Cu, 0.50, [
+        ("VIN", pcbnew.B_Cu, 0.50, [
             [("C1", "1"), (25, 35), (25, 25), (85, 25), ("J1", "1")],
             [("U1", "1"), (25, 65)],
             [(25, 65), (25, 35)],
