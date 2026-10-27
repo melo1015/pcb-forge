@@ -202,7 +202,7 @@ def main() -> int:
         report_path = Path(str(item["report"]))
         report_text = report_path.read_text(encoding="utf-8", errors="replace") if report_path.is_file() else ""
         if item["kind"] == "ERC":
-            match = re.search(r"ERC messages:\\s*\\d+\\s+Errors\\s+(\\d+)\\s+Warnings\\s+(\\d+)", report_text)
+            match = re.search(r"ERC messages:\s*\d+\s+Errors\s+(\d+)\s+Warnings\s+(\d+)", report_text)
             quality.append({
                 "kind": "ERC",
                 "errors": int(match.group(1)) if match else None,
@@ -211,8 +211,8 @@ def main() -> int:
                 "report": str(report_path),
             })
         else:
-            violations = re.search(r"Found\\s+(\\d+)\\s+DRC violations", report_text)
-            unconnected = re.search(r"Found\\s+(\\d+)\\s+unconnected pads", report_text)
+            violations = re.search(r"Found\s+(\d+)\s+DRC violations", report_text)
+            unconnected = re.search(r"Found\s+(\d+)\s+unconnected pads", report_text)
             quality.append({
                 "kind": "DRC",
                 "violations": int(violations.group(1)) if violations else None,
