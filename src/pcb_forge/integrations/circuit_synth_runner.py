@@ -10,9 +10,27 @@ import sys
 from pathlib import Path
 
 
+def _remove_adapter_directory_from_import_path() -> None:
+    """Prevent this adapter's sibling circuit_synth.py from shadowing the dependency.
+
+    When Python executes this file directly, sys.path[0] is the directory that
+    contains the adapter module. That directory also contains pcb_forge's
+    circuit_synth.py integration adapter, which would otherwise mask the
+    installed upstream `circuit_synth` package imported by user circuit files.
+    """
+    adapter_dir = Path(__file__).resolve().parent
+    sys.path[:] = [
+        entry
+        for entry in sys.path
+        if not entry or Path(entry).resolve() != adapter_dir
+    ]
+
+
 def main() -> int:
     source = Path(sys.argv[1]).resolve()
     project_dir = Path(sys.argv[2]).resolve()
+    _remove_adapter_directory_from_import_path()
+
     spec = importlib.util.spec_from_file_location("pcb_forge_user_circuit", source)
     if spec is None or spec.loader is None:
         raise RuntimeError(f"Cannot load circuit module: {source}")
@@ -26,8 +44,16 @@ def main() -> int:
     if not callable(generate):
         raise TypeError("build_circuit() must return an object with generate_kicad_project()")
     result = generate(project_dir.name)
-    print(json.dumps({"status": "generated", "project_name": project_dir.name,
-                      "result_type": type(result).__name__}, default=str))
+    print(
+        json.dumps(
+            {
+                "status": "generated",
+                "project_name": project_dir.name,
+                "result_type": type(result).__name__,
+            },
+            default=str,
+        )
+    )
     return 0
 
 
