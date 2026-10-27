@@ -228,6 +228,8 @@ def main() -> int:
             quality_failures.append(f"Could not parse {item['kind']} report counts")
         elif item["kind"] == "ERC" and item["errors"] != 0:
             quality_failures.append(f"ERC reported {item['errors']} errors")
+        elif item["kind"] == "ERC" and item["warnings"] != 0:
+            quality_failures.append(f"ERC reported {item['warnings']} warnings")
         elif item["kind"] == "DRC":
             if item["violations"] != 0:
                 quality_failures.append(f"DRC reported {item['violations']} violations")
@@ -241,6 +243,45 @@ def main() -> int:
         "schematic_normalization": normalization,
         "pcb_fallback": fallback_result,
         "validation_commands": reports,
+        "integration_gate": {
+            "passed": not quality_failures,
+            "checks": [
+                "Circuit-Synth generated a KiCad schematic",
+                "KiCad generated or validated a PCB file",
+                "ERC has zero errors and warnings",
+                "DRC has zero geometry violations",
+            ],
+            "failures": quality_failures,
+        },
+        "manufacturing_gate": {
+            "passed": (
+                not fallback_used
+                and not quality_failures
+                and all(
+                    item["kind"] != "DRC"
+                    or item["unconnected_items"] == 0
+                    for item in quality
+                )
+            ),
+            "ready": (
+                not fallback_used
+                and not quality_failures
+                and all(
+                    item["kind"] != "DRC"
+                    or item["unconnected_items"] == 0
+                    for item in quality
+                )
+            ),
+            "blocking_reasons": (
+                (["PCB fallback created an unrouted placement seed"] if fallback_used else [])
+                + [
+                    f"DRC reports {item['unconnected_items']} unconnected pads"
+                    for item in quality
+                    if item["kind"] == "DRC" and item["unconnected_items"] not in (0, None)
+                ]
+                + quality_failures
+            ),
+        },
         "quality_gate": {
             "passed": not quality_failures,
             "counts": quality,
