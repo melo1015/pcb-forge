@@ -1,9 +1,11 @@
 """MCP entry point."""
 import logging
+from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
 
 from pcb_forge.config import Settings
+from pcb_forge.integrations.circuit_synth import generate_from_source
 from pcb_forge.integrations.manufacturing import export_manufacturing
 from pcb_forge.orchestrator import Orchestrator
 
@@ -29,6 +31,26 @@ def pcb_generate_project(name: str, description: str) -> dict:
         return {"ok": True, "result": orchestrator.generate_project(name, description)}
     except Exception as exc:
         logger.exception("Project generation failed")
+        return {"ok": False, "error": str(exc)}
+
+
+@mcp.tool()
+def pcb_generate_from_circuit_synth_source(name: str, source_filename: str) -> dict:
+    """Generate a KiCad project from a reviewed Python Circuit-Synth module in the workspace.
+
+    The source must be trusted code, located inside the named project's workspace,
+    and expose build_circuit() returning a Circuit-Synth object.
+    """
+    try:
+        project_dir = orchestrator.workspace.resolve_project(name)
+        source_file = (project_dir / source_filename).resolve()
+        source_file.relative_to(project_dir.resolve())
+        result = generate_from_source(
+            project_dir, source_file, settings.command_timeout
+        )
+        return {"ok": bool(result["ok"]), "result": result}
+    except Exception as exc:
+        logger.exception("Circuit-Synth source generation failed")
         return {"ok": False, "error": str(exc)}
 
 
