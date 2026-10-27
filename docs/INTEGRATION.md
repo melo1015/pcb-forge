@@ -28,19 +28,14 @@ kicad-cli sch erc --help
 
 Configura `PCB_FORGE_KICAD_CLI` con la ruta absoluta al ejecutable si no está en `PATH`. Los argumentos y opciones disponibles dependen de la versión instalada; confirma los comandos con `--help` en el equipo destino.
 
-## 3. Generación de circuitos: límite actual
+## 3. Generación de circuitos y rutas de integración
 
-**PCB Forge todavía no invoca directamente la API Python de Circuit-Synth.** La API pública de Circuit-Synth requiere definir/obtener una función de circuito en Python y llamar a `generate_kicad_project(...)`; no existe un contrato universal asumido aquí de `circuit-synth --request-file ... --output-dir ...`.
+PCB Forge dispone de dos rutas distintas que no deben confundirse:
 
-El adaptador actual llama a un **wrapper externo de confianza** con el contrato fijo:
+- **Adaptador genérico heredado:** `PCB_FORGE_CIRCUIT_SYNTH_COMMAND` ejecuta un wrapper externo con el contrato `--request-file` y `--output-dir`. Ese wrapper debe existir, ser de confianza y encargarse de generar el proyecto. No apuntes esta variable al paquete upstream de Circuit-Synth salvo que hayas verificado que el ejecutable cumple dicho contrato.
+- **Backend directo Circuit-Synth:** la herramienta MCP documentada en la sección siguiente ejecuta un módulo Python revisado que implementa `build_circuit()` y genera el proyecto mediante la API Python de Circuit-Synth.
 
-```text
-<ejecutable-y-argumentos-fijos> --request-file <ruta/design_request.txt> --output-dir <directorio-del-proyecto>
-```
-
-`PCB_FORGE_CIRCUIT_SYNTH_COMMAND` debe apuntar a ese wrapper, no directamente al ejecutable upstream de Circuit-Synth, salvo que el usuario haya comprobado que un wrapper compatible existe. El wrapper es responsable de transformar la descripción en un diseño de circuito válido, generar el proyecto KiCad y devolver un código de salida distinto de cero si falla. No ejecutes wrappers o scripts de procedencia desconocida.
-
-La siguiente integración real debe añadir un backend versionado que transforme la especificación en código de circuito revisable, lo ejecute en un entorno aislado y verifique que se generaron los archivos KiCad esperados. Hasta entonces, una descripción en lenguaje natural por sí sola **no produce automáticamente un diseño electrónico fiable**.
+La ruta directa evita depender del wrapper genérico, pero no convierte automáticamente lenguaje natural en un diseño electrónico. El módulo Python debe construirse con la API real de la versión instalada y revisarse antes de ejecutarlo. La prueba E2E con Circuit-Synth y KiCad instalados se documenta en la sección 7.
 
 ## 4. Backend directo para un módulo Circuit-Synth revisado
 
@@ -105,5 +100,5 @@ python scripts/run_circuit_synth_e2e.py examples/circuit_synth/regulator_5v.py -
 
 El script conserva el proyecto generado, los informes ERC/DRC y `e2e-summary.json` en `pcb-forge-e2e-artifacts/` (o en el directorio indicado con `--output-dir`). Comprueba que existan al menos un esquema y una placa KiCad y ejecuta ERC y DRC. El script falla si la generación no produce los archivos esperados o si los comandos de KiCad no pueden ejecutarse; **un código de salida cero no significa que ERC/DRC estén libres de infracciones**. Revisa los informes y el diseño en KiCad antes de considerar fabricar la placa. La referencia de 5 V es una base de integración, no un diseño certificado ni listo para producción.
 
-El workflow carga los archivos de `artifacts/e2e/` como artefacto descargable de GitHub Actions durante 14 días, incluso si falla una etapa posterior. Para habilitarlo, registra un runner autohospedado aislado con las tres etiquetas indicadas y ejecútalo manualmente desde la pestaña Actions. No registres como runner una máquina personal o de producción sin evaluar los riesgos de ejecutar código del repositorio.
+El workflow carga los archivos de `artifacts/e2e/` como artefacto descargable de GitHub Actions durante 14 días, incluso si falla una etapa posterior. Para habilitarlo, registra un runner autohospedado aislado con las tres etiquetas indicadas y ejecútalo manualmente desde la pestaña Actions. Consulta [la guía de configuración del runner E2E](E2E_RUNNER.md) para los pasos detallados. No registres como runner una máquina personal o de producción sin evaluar los riesgos de ejecutar código del repositorio.
 
