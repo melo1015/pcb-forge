@@ -1,8 +1,8 @@
 """Create an unrouted KiCad PCB placement seed from a generated schematic netlist.
 
-This is an E2E fallback for Circuit-Synth distributions that generate schematics
-but do not include their licensed PCB-generation integration. It does NOT route
-tracks or certify a manufacturable design.
+Fallback for Circuit-Synth distributions that generate schematics but omit the
+licensed PCB-generation integration. This does NOT route tracks or certify a
+manufacturable design.
 """
 from __future__ import annotations
 
@@ -13,6 +13,13 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import pcbnew
+
+
+def _point(x_mm: float, y_mm: float):
+    """Support KiCad 7's wxPoint and newer vector-based bindings."""
+    if hasattr(pcbnew, "VECTOR2I"):
+        return pcbnew.VECTOR2I(pcbnew.FromMM(x_mm), pcbnew.FromMM(y_mm))
+    return pcbnew.wxPoint(pcbnew.FromMM(x_mm), pcbnew.FromMM(y_mm))
 
 
 def main() -> int:
@@ -48,7 +55,6 @@ def main() -> int:
         value = (component.findtext("value") or ref).strip()
         if ref and footprint:
             components[ref] = {"footprint": footprint, "value": value}
-
     if not components:
         raise RuntimeError("Netlist contains no components with assigned footprints")
 
@@ -65,7 +71,7 @@ def main() -> int:
     footprint_root = Path("/usr/share/kicad/footprints")
     placed: dict[str, object] = {}
     x, y = 35.0, 35.0
-    for index, (ref, info) in enumerate(sorted(components.items())):
+    for ref, info in sorted(components.items()):
         if ":" not in info["footprint"]:
             raise RuntimeError(f"Invalid footprint identifier for {ref}: {info['footprint']}")
         library, footprint_name = info["footprint"].split(":", 1)
@@ -75,7 +81,7 @@ def main() -> int:
             raise RuntimeError(f"Could not load footprint {info['footprint']} for {ref}")
         footprint.SetReference(ref)
         footprint.SetValue(info["value"])
-        footprint.SetPosition(pcbnew.VECTOR2I(pcbnew.FromMM(x), pcbnew.FromMM(y)))
+        footprint.SetPosition(_point(x, y))
         board.Add(footprint)
         placed[ref] = footprint
         x += 25.0
@@ -83,24 +89,21 @@ def main() -> int:
             x, y = 35.0, y + 30.0
 
     for net in root.findall(".//nets/net"):
-        net_name = net.get("name", "")
-        net_item = net_items.get(net_name)
+        net_item = net_items.get(net.get("name", ""))
         if net_item is None:
             continue
         for node in net.findall("node"):
-            ref, pin_number = node.get("ref", ""), node.get("pin", "")
-            footprint = placed.get(ref)
+            footprint = placed.get(node.get("ref", ""))
             if footprint is None:
                 continue
             for pad in footprint.Pads():
-                if pad.GetNumber() == pin_number:
+                if pad.GetNumber() == node.get("pin", ""):
                     pad.SetNet(net_item)
 
-    # A visible board outline makes the generated file a useful placement seed.
     outline = pcbnew.PCB_SHAPE()
     outline.SetShape(pcbnew.SHAPE_T_RECT)
-    outline.SetStart(pcbnew.VECTOR2I(pcbnew.FromMM(20), pcbnew.FromMM(20)))
-    outline.SetEnd(pcbnew.VECTOR2I(pcbnew.FromMM(155), pcbnew.FromMM(100)))
+    outline.SetStart(_point(20, 20))
+    outline.SetEnd(_point(155, 100))
     outline.SetLayer(pcbnew.Edge_Cuts)
     board.Add(outline)
 
