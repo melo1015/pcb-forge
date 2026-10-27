@@ -5,8 +5,8 @@ engineering requirements. Unknown values stay null and block electrical release.
 """
 from __future__ import annotations
 
-from collections.abc import Callable
 import json
+from collections.abc import Callable
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
