@@ -5,9 +5,9 @@ verified in the target environment. The configured command is treated as an
 executable path plus fixed arguments; user prompts are written to a file and
 are not interpolated into a shell command.
 """
-from pathlib import Path
 import shlex
 import subprocess
+from pathlib import Path
 
 
 class IntegrationUnavailable(RuntimeError):
