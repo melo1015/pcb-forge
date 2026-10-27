@@ -108,7 +108,9 @@ def test_manufacturing_export_requires_board(tmp_path: Path):
 def test_native_circuit_synth_backend_runs_reviewed_module_in_subprocess(tmp_path: Path):
     source = tmp_path / "design.py"
     source.write_text("def build_circuit(): pass\\n", encoding="utf-8")
-    (tmp_path / "demo.kicad_pcb").write_text("board", encoding="utf-8")
+    generated_project = tmp_path / "demo"
+    generated_project.mkdir()
+    (generated_project / "demo.kicad_pcb").write_text("board", encoding="utf-8")
     completed = CompletedProcess(
         args=["python"], returncode=0, stdout="generated", stderr=""
     )
