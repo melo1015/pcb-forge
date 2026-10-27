@@ -11,6 +11,7 @@ on:
       - "examples/circuit_synth/**"
       - "scripts/run_circuit_synth_e2e.py"
       - "scripts/create_board_from_netlist.py"
+      - "scripts/route_reference_regulator.py"
 
 permissions:
   contents: read
