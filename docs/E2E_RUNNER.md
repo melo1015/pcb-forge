@@ -108,8 +108,10 @@ Expected contents under `artifacts/e2e/` include:
 - `regulator_5v/`: generated KiCad project files and the copied source.
 - `*.erc.rpt`: electrical-rule-check reports for generated schematics.
 - `*.drc.rpt`: design-rule-check reports for generated boards.
-- `e2e-summary.json`: generation result, PCB fallback details when used,
-  command return codes, report paths, and captured command output.
+- `fabrication/`: draft Gerber copper/mask/silkscreen/outline files and Excellon
+  drill files, generated only when the automated manufacturing gate passes.
+- `e2e-summary.json`: generation and routing results, gate status, export
+  commands, output file inventory, report paths, and captured command output.
 
 Review the reports rather than relying only on the job's exit code. The summary
 separates two outcomes:
@@ -122,9 +124,10 @@ separates two outcomes:
 The hosted run exercises a netlist fallback and a design-specific routing step.
 The integration gate checks generated files and ERC/DRC quality; the manufacturing
 gate additionally requires successful routing, zero DRC violations, and zero
-unconnected pads. A green automated gate is necessary but not sufficient for
-manufacturing: the 5 V example remains a reference design requiring electrical,
-thermal, footprint, and fabrication review.
+unconnected pads. A green automated gate and exported Gerber/drill files are necessary but not
+sufficient for manufacturing: these are draft fabrication outputs. The 5 V
+example remains a reference design requiring electrical, thermal, footprint,
+and fabrication-house review before ordering boards.
 
 ## 7. Run locally
 
