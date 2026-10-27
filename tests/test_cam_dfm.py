@@ -85,7 +85,8 @@ def test_structural_cam_preflight_blocks_unclosed_outline(tmp_path: Path):
         "X20000000Y-20000000D02*\n"
         "X155000000Y-20000000D01*\n"
         "X155000000Y-100000000D01*\n"
-        "X20000000Y-100000000D01*\nM02*\n",
+        "X20000000Y-100000000D01*\n"
+        "X20000000Y-30000000D01*\nM02*\n",
         encoding="ascii",
     )
 
