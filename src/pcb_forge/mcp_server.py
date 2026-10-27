@@ -8,6 +8,7 @@ from pcb_forge.integrations.circuit_synth import generate_from_source
 from pcb_forge.integrations.manufacturing import export_manufacturing
 from pcb_forge.orchestrator import Orchestrator
 from pcb_forge.release_gate import EvidenceItem, evaluate_release_gate
+from pcb_forge.release_gate import EvidenceItem, evaluate_release_gate
 
 
 settings = Settings.from_env()
@@ -63,6 +64,22 @@ def pcb_validate_project(name: str) -> dict:
     except Exception as exc:
         logger.exception("Project validation failed")
         return {"ok": False, "error": str(exc)}
+
+
+@mcp.tool()
+def pcb_evaluate_release_gate(evidence: list[dict]) -> dict:
+    """Evaluate fabrication release from auditable evidence supplied by specialized agents.
+
+    Each evidence item must contain a stable key, a boolean passed value (or null if
+    unknown), and traceability for any claimed pass. Missing evidence blocks release.
+    """
+    try:
+        items = [EvidenceItem.model_validate(item) for item in evidence]
+        report = evaluate_release_gate(items)
+        return {"ok": True, "report": report.model_dump(mode="json")}
+    except Exception as exc:
+        logger.exception("Release gate evaluation failed")
+        return {"ok": False, "error": str(exc), "ready_for_fabrication": False}
 
 
 @mcp.tool()
