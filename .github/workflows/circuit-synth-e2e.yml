@@ -27,4 +27,12 @@ jobs:
       - name: Verify Circuit-Synth
         run: python -c "import circuit_synth; print('Circuit-Synth import OK')"
       - name: Generate 5V regulator and run KiCad ERC/DRC commands
-        run: python scripts/run_circuit_synth_e2e.py examples/circuit_synth/regulator_5v.py
+        run: python scripts/run_circuit_synth_e2e.py examples/circuit_synth/regulator_5v.py --output-dir artifacts/e2e
+      - name: Upload generated KiCad project and ERC/DRC reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pcb-forge-circuit-synth-e2e
+          path: artifacts/e2e/
+          if-no-files-found: warn
+          retention-days: 14
