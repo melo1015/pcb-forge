@@ -40,13 +40,19 @@ and a board outline. This lets the pipeline exercise KiCad's board parser and
 DRC report generation without claiming the paid Circuit-Synth PCB integration
 is available.
 
-This fallback is not an autorouter and does not create copper tracks. It is
-strictly an integration-test fixture. The generated board will normally report
-unrouted-net or other layout violations. It is **not suitable for manufacturing**;
-a designer must inspect the schematic, verify footprint/pin mappings, place and
-route the board, then resolve ERC/DRC findings. To test Circuit-Synth's own PCB
-generator, use a distribution/license that explicitly includes that feature and
-remove reliance on the fallback for that run.
+The fallback alone does not create copper tracks. For the exact 5 V reference
+design only, the E2E then runs
+[`scripts/route_reference_regulator.py`](../scripts/route_reference_regulator.py).
+That guarded router checks expected references, pad numbers, and net names before
+placing explicit VIN/VOUT tracks on F.Cu and GND tracks on B.Cu. It refuses to
+run on a board that already contains tracks, and is not a general-purpose
+autorouter. The result must pass KiCad DRC with zero violations and zero
+unconnected pads before the automated manufacturing gate can pass. This still
+does not certify electrical ratings, thermal behavior, footprint correctness,
+clearances for a chosen fabrication house, or product safety; those require
+engineering review. To test Circuit-Synth's own PCB generator, use a
+distribution/license that explicitly includes that feature and remove reliance
+on the fallback for that run.
 
 ## 3. Prepare a dedicated self-hosted runner (optional)
 
@@ -113,11 +119,12 @@ separates two outcomes:
 - `manufacturing_gate.ready`: the board is not the fallback placement seed and
   DRC reports zero unconnected pads as well as zero geometry violations.
 
-The hosted run currently exercises the fallback, so it can pass the integration
-gate while the manufacturing gate correctly remains **false**. This is intentional:
-the fallback creates no copper tracks, so its unconnected pads must not be hidden
-or treated as a production success. The example is a starting point for integration
-testing, not a production-ready power supply.
+The hosted run exercises a netlist fallback and a design-specific routing step.
+The integration gate checks generated files and ERC/DRC quality; the manufacturing
+gate additionally requires successful routing, zero DRC violations, and zero
+unconnected pads. A green automated gate is necessary but not sufficient for
+manufacturing: the 5 V example remains a reference design requiring electrical,
+thermal, footprint, and fabrication review.
 
 ## 7. Run locally
 
