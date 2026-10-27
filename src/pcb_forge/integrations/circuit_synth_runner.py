@@ -20,11 +20,11 @@ def main() -> int:
     spec.loader.exec_module(module)
     build_circuit = getattr(module, "build_circuit", None)
     if not callable(build_circuit):
-        raise RuntimeError("Circuit module must expose build_circuit()")
+        raise TypeError("Circuit module must expose build_circuit()")
     circuit = build_circuit()
     generate = getattr(circuit, "generate_kicad_project", None)
     if not callable(generate):
-        raise RuntimeError("build_circuit() must return an object with generate_kicad_project()")
+        raise TypeError("build_circuit() must return an object with generate_kicad_project()")
     result = generate(project_dir.name)
     print(json.dumps({"status": "generated", "project_name": project_dir.name,
                       "result_type": type(result).__name__}, default=str))
@@ -34,6 +34,6 @@ def main() -> int:
 if __name__ == "__main__":
     try:
         raise SystemExit(main())
-    except Exception as exc:
+    except (ImportError, AttributeError, OSError, RuntimeError, TypeError, ValueError) as exc:
         print(f"CIRCUIT_SYNTH_ERROR: {exc}", file=sys.stderr)
         raise SystemExit(2)
