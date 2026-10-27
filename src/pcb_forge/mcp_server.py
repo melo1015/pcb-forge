@@ -83,10 +83,6 @@ def pcb_export_manufacturing(name: str) -> dict:
         return {"ok": False, "error": str(exc)}
 
 
-def main() -> None:
-    logging.basicConfig(level=settings.log_level)
-    mcp.run()
-
 
 @mcp.tool()
 def pcb_evaluate_release_gate(evidence: list[dict]) -> dict:
@@ -103,3 +99,8 @@ def pcb_evaluate_release_gate(evidence: list[dict]) -> dict:
     except Exception as exc:
         logger.exception("Release gate evaluation failed")
         return {"ok": False, "error": str(exc)}
+
+
+def main() -> None:
+    logging.basicConfig(level=settings.log_level)
+    mcp.run()
