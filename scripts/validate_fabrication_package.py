@@ -9,7 +9,6 @@ from __future__ import annotations
 import argparse
 import json
 import re
-import sys
 from pathlib import Path
 from typing import Any
 
@@ -55,10 +54,11 @@ def _check_gerber(path: Path, layer: str) -> list[str]:
         issues.append(f"{layer}: no aperture definitions found")
     if layer == "Edge.Cuts":
         coords = re.findall(r"X(-?\d+)Y(-?\d+)D0([12])\*", data)
-        draw_coords = [(x, y) for x, y, op in coords if op == "1"]
-        if len(draw_coords) < 4:
+        path_coords = [(x, y) for x, y, _op in coords]
+        draw_count = sum(1 for _x, _y, op in coords if op == "1")
+        if draw_count < 4:
             issues.append("Edge.Cuts: fewer than four draw coordinates; outline may be incomplete")
-        elif draw_coords[-1] != draw_coords[0]:
+        elif path_coords[-1] != path_coords[0]:
             issues.append("Edge.Cuts: final draw coordinate does not close to the first draw coordinate")
     return issues
 
@@ -80,14 +80,12 @@ def validate_package(package_dir: Path) -> dict[str, Any]:
     blocking: list[str] = []
     warnings: list[str] = []
 
-    selected_layers: dict[str, Path] = {}
     for layer, suffixes in REQUIRED_LAYERS.items():
         path = _find_layer(files, suffixes, layer)
         if path is None:
             blocking.append(f"Missing required Gerber layer: {layer}")
             checks.append({"check": f"layer:{layer}", "passed": False, "file": None})
             continue
-        selected_layers[layer] = path
         issues = _check_gerber(path, layer)
         blocking.extend(issues)
         checks.append({
@@ -116,7 +114,7 @@ def validate_package(package_dir: Path) -> dict[str, Any]:
             drill_issues.append("No drill tool definitions found")
         if not coordinates:
             drill_issues.append("No drill coordinates found")
-        if not re.search(r"(?m)^METRIC\s*$|(?m)^INCH\s*$", data):
+        if not re.search(r"(?m)^(?:METRIC|INCH)\s*$", data):
             drill_issues.append("No explicit METRIC/INCH unit declaration found")
         blocking.extend(drill_issues)
         checks.append({
