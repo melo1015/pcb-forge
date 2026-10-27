@@ -10,6 +10,7 @@ from pcb_forge.orchestrator import Orchestrator
 settings = Settings.from_env()
 orchestrator = Orchestrator(settings)
 mcp = FastMCP("pcb-forge")
+logger = logging.getLogger(__name__)
 
 
 @mcp.tool()
@@ -27,7 +28,7 @@ def pcb_generate_project(name: str, description: str) -> dict:
     try:
         return {"ok": True, "result": orchestrator.generate_project(name, description)}
     except Exception as exc:
-        logging.exception("Project generation failed")
+        logger.exception("Project generation failed")
         return {"ok": False, "error": str(exc)}
 
 
@@ -37,7 +38,7 @@ def pcb_validate_project(name: str) -> dict:
     try:
         return {"ok": True, "report": orchestrator.validate_project(name)}
     except Exception as exc:
-        logging.exception("Project validation failed")
+        logger.exception("Project validation failed")
         return {"ok": False, "error": str(exc)}
 
 
@@ -55,7 +56,7 @@ def pcb_export_manufacturing(name: str) -> dict:
             }
         return export_gerbers(project_dir, settings.kicad_cli, settings.command_timeout)
     except Exception as exc:
-        logging.exception("Manufacturing export failed")
+        logger.exception("Manufacturing export failed")
         return {"ok": False, "error": str(exc)}
 
 
