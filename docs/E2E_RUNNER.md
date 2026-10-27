@@ -5,10 +5,10 @@ Circuit-Synth E2E has two execution paths:
 
 - **Hosted Linux (recommended first):** workflow
   [Circuit-Synth + KiCad E2E (hosted Linux)](../.github/workflows/circuit-synth-e2e-hosted.yml)
-  installs KiCad CLI on a disposable GitHub-hosted Ubuntu 24.04 runner, installs
-  Circuit-Synth, generates the reference project, runs ERC/DRC, and uploads
-  artifacts. It runs on relevant pushes to `main` and can also be dispatched
-  manually. No self-hosted runner registration is needed.
+  installs KiCad CLI and libraries on a disposable GitHub-hosted Ubuntu 24.04
+  runner, installs Circuit-Synth, generates the reference project, runs ERC/DRC,
+  and uploads artifacts. It runs on relevant pushes to `main` and can also be
+  dispatched manually. No self-hosted runner registration is needed.
 - **Self-hosted Linux (optional):** workflow
   [Circuit-Synth + KiCad E2E](../.github/workflows/circuit-synth-e2e.yml)
   targets a trusted runner labeled `self-hosted`, `linux`, and
@@ -28,7 +28,26 @@ GitHub retains it for 14 days. Inspect `e2e-summary.json`, the generated
 should be debugged from the first failing workflow step; do not suppress the
 failure just to turn CI green.
 
-## 2. Prepare a dedicated self-hosted runner (optional)
+## 2. PCB-generation fallback and its limits
+
+Some pip distributions of Circuit-Synth can generate a KiCad schematic but
+report that their PCB-generation integration is not included in the installed
+package. If Circuit-Synth succeeds but does not emit a `.kicad_pcb`, the hosted
+E2E uses KiCad's exported XML netlist and the system `pcbnew` Python bindings
+to create an **unrouted PCB placement seed** with footprints, net assignments,
+and a board outline. This lets the pipeline exercise KiCad's board parser and
+DRC report generation without claiming the paid Circuit-Synth PCB integration
+is available.
+
+This fallback is not an autorouter and does not create copper tracks. It is
+strictly an integration-test fixture. The generated board will normally report
+unrouted-net or other layout violations. It is **not suitable for manufacturing**;
+a designer must inspect the schematic, verify footprint/pin mappings, place and
+route the board, then resolve ERC/DRC findings. To test Circuit-Synth's own PCB
+generator, use a distribution/license that explicitly includes that feature and
+remove reliance on the fallback for that run.
+
+## 3. Prepare a dedicated self-hosted runner (optional)
 
 Use a dedicated Linux VM or disposable machine that you control. Do not register
 a self-hosted runner on a workstation containing personal files, credentials,
@@ -40,13 +59,15 @@ Requirements:
 - Linux supported by the installed KiCad package.
 - Python 3.12 and pip.
 - `kicad-cli` available on PATH; verify with `kicad-cli version`.
+- KiCad's `pcbnew` Python bindings available to the system Python when the
+  PCB-generation fallback is needed.
 - Outbound network access to GitHub and Python package indexes during setup/job.
 - Enough disk space for Python packages and generated KiCad files.
 
 Install KiCad using the official instructions for your Linux distribution:
 https://www.kicad.org/download/linux/
 
-## 3. Register the self-hosted runner
+## 4. Register the self-hosted runner
 
 In GitHub, open **melo1015/pcb-forge → Settings → Actions → Runners → New self-hosted runner**.
 
@@ -62,7 +83,7 @@ The self-hosted workflow requires all three labels:
 `self-hosted`, `linux`, and `pcb-forge-e2e`. A runner without these labels
 will leave that job queued.
 
-## 4. Run the self-hosted E2E workflow
+## 5. Run the self-hosted E2E workflow
 
 1. Open the repository's **Actions** tab.
 2. Select **Circuit-Synth + KiCad E2E** (without the hosted Linux suffix).
@@ -73,22 +94,22 @@ will leave that job queued.
 
 This workflow is manual-only and targets the dedicated runner labels above.
 
-## 5. Expected outputs and review
+## 6. Expected outputs and review
 
 Expected contents under `artifacts/e2e/` include:
 
 - `regulator_5v/`: generated KiCad project files and the copied source.
 - `*.erc.rpt`: electrical-rule-check reports for generated schematics.
 - `*.drc.rpt`: design-rule-check reports for generated boards.
-- `e2e-summary.json`: generation result, command return codes, report paths,
-  and captured command output.
+- `e2e-summary.json`: generation result, PCB fallback details when used,
+  command return codes, report paths, and captured command output.
 
 Review the reports rather than relying only on the job's exit code. A successful
 KiCad CLI invocation does not itself prove that the design has zero violations,
 is electrically correct, or is ready to manufacture. The example is a starting
 point for integration testing, not a production-ready power supply.
 
-## 6. Run locally
+## 7. Run locally
 
 From the repository root, in an environment with the project dependencies,
 Circuit-Synth, and KiCad CLI installed:
@@ -99,8 +120,9 @@ kicad-cli version
 python scripts/run_circuit_synth_e2e.py examples/circuit_synth/regulator_5v.py --output-dir artifacts/e2e
 ~~~
 
-The script recreates only `artifacts/e2e/regulator_5v/` on each run. Keep any
-other files in the output directory backed up if they matter.
+If the fallback is needed, the script also requires a system Python that can
+`import pcbnew`. The script recreates only `artifacts/e2e/regulator_5v/` on
+each run. Keep any other files in the output directory backed up if they matter.
 
 ## Security and troubleshooting
 
@@ -112,7 +134,7 @@ other files in the output directory backed up if they matter.
 - If the self-hosted job remains queued, verify that the runner is online and
   has all three required labels.
 - If `kicad-cli version` fails, fix the system installation/PATH before rerunning.
-- If package installation fails, inspect the pip output and verify Python 3.12
+- If package installation fails, inspect the apt/pip output and verify Python 3.12
   and network access.
 - If generation fails or no `.kicad_sch`/`.kicad_pcb` files appear, inspect
   the generation result in the logs and the downloaded artifact, if present.
