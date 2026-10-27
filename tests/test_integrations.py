@@ -61,13 +61,13 @@ def test_manufacturing_export_runs_gerber_drill_and_step(tmp_path: Path):
     completed = CompletedProcess(args=["kicad-cli"], returncode=0, stdout="", stderr="")
 
     def fake_run(_cli, args, _cwd, _timeout):
-        if args[2:4] == ["export", "gerbers"]:
+        if args[1:3] == ["export", "gerbers"]:
             out_dir = Path(args[args.index("-o") + 1])
             (out_dir / "demo-F_Cu.gbr").write_text("gerber", encoding="utf-8")
-        elif args[2:4] == ["export", "drill"]:
+        elif args[1:3] == ["export", "drill"]:
             out_dir = Path(args[args.index("-o") + 1])
             (out_dir / "demo-PTH.drl").write_text("drill", encoding="utf-8")
-        elif args[2:4] == ["export", "step"]:
+        elif args[1:3] == ["export", "step"]:
             step_file = Path(args[args.index("-o") + 1])
             step_file.write_text("step", encoding="utf-8")
         return completed
