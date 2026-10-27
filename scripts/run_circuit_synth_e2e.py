@@ -126,7 +126,14 @@ def _export_fabrication_package(board: Path, output_dir: Path, cli: str) -> dict
                 "stdout": "",
                 "stderr": "KiCad fabrication export timed out",
             })
-    gerbers = sorted(str(path) for path in export_dir.glob("*.gbr"))
+    gerber_suffixes = {
+        ".gbr", ".gtl", ".gbl", ".gto", ".gbo", ".gts", ".gbs",
+        ".gm1", ".gko", ".g1", ".g2",
+    }
+    gerbers = sorted(
+        str(path) for path in export_dir.iterdir()
+        if path.is_file() and path.suffix.lower() in gerber_suffixes
+    )
     drills = sorted(str(path) for path in export_dir.glob("*.drl"))
     ok = (
         all(item["returncode"] == 0 for item in results)
