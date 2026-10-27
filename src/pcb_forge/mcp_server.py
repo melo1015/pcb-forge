@@ -6,8 +6,8 @@ from mcp.server.fastmcp import FastMCP
 from pcb_forge.config import Settings
 from pcb_forge.integrations.circuit_synth import generate_from_source
 from pcb_forge.integrations.manufacturing import export_manufacturing
-from pcb_forge.orchestrator import Orchestrator
 from pcb_forge.release_gate import EvidenceItem, evaluate_release_gate
+from pcb_forge.orchestrator import Orchestrator
 
 
 settings = Settings.from_env()
@@ -96,24 +96,6 @@ def pcb_export_manufacturing(name: str) -> dict:
         return export_manufacturing(project_dir, settings.kicad_cli, settings.command_timeout)
     except Exception as exc:
         logger.exception("Manufacturing export failed")
-        return {"ok": False, "error": str(exc)}
-
-
-
-@mcp.tool()
-def pcb_evaluate_release_gate(evidence: list[dict]) -> dict:
-    """Evaluate the fabrication release gate from structured, traceable evidence.
-
-    Each item requires key and passed; successful evidence must include a source
-    plus an artifact path/URL or review details. This evaluates the evidence
-    submitted by agents; it does not independently authenticate external claims.
-    """
-    try:
-        items = [EvidenceItem.model_validate(item) for item in evidence]
-        report = evaluate_release_gate(items)
-        return {"ok": True, "report": report.model_dump(mode="json")}
-    except Exception as exc:
-        logger.exception("Release gate evaluation failed")
         return {"ok": False, "error": str(exc)}
 
 
