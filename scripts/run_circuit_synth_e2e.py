@@ -75,7 +75,7 @@ def main() -> int:
             ),
         }
         summary_path.write_text(
-            json.dumps(summary, indent=2, default=str) + "\\n", encoding="utf-8"
+            json.dumps(summary, indent=2, default=str) + "\n", encoding="utf-8"
         )
         print(json.dumps(summary, indent=2, default=str))
         print("E2E requires at least one .kicad_sch and one .kicad_pcb.", file=sys.stderr)
