@@ -1,6 +1,6 @@
 """KiCad CLI adapter with timeout and no shell expansion."""
-from pathlib import Path
 import subprocess
+from pathlib import Path
 
 from pcb_forge.models import Diagnostic, ValidationReport
 
