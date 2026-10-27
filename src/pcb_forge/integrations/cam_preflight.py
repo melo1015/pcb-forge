@@ -74,7 +74,7 @@ def validate_package(package_dir: Path) -> dict[str, Any]:
             "warnings": [],
         }
 
-    files = [p for p in package_dir.iterdir() if p.is_file()]
+    files = [p for p in package_dir.rglob("*") if p.is_file()]
     checks: list[dict[str, Any]] = []
     blocking: list[str] = []
     warnings: list[str] = []
