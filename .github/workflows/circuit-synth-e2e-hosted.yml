@@ -31,13 +31,14 @@ jobs:
       - name: Install KiCad CLI, libraries, and Python bindings
         run: |
           sudo apt-get update
-          # Explicit packages are required when recommends are disabled.
-          sudo apt-get install --no-install-recommends -y kicad kicad-symbols kicad-footprints python3-pcbnew
+          # Ubuntu's KiCad package ships pcbnew bindings; there is no
+          # standalone python3-pcbnew package in the Noble repositories.
+          sudo apt-get install --no-install-recommends -y kicad kicad-symbols kicad-footprints
           kicad-cli version
           test -f "${KICAD_SYMBOL_DIR}/Regulator_Linear.kicad_sym"
           test -f "${KICAD_SYMBOL_DIR}/Device.kicad_sym"
           test -d "${KICAD_FOOTPRINT_DIR}"
-          /usr/bin/python3 -c "import pcbnew; print('KiCad pcbnew bindings OK')"
+          /usr/bin/python3 -c "import pcbnew; print('KiCad pcbnew bindings OK:', pcbnew.GetBuildVersion())"
       - name: Install PCB Forge and Circuit-Synth
         run: python -m pip install -e ".[dev,circuit-synth]"
       - name: Verify Circuit-Synth
