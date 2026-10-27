@@ -4,7 +4,11 @@ from unittest.mock import patch
 
 import pytest
 
-from pcb_forge.integrations.circuit_synth import (\n    IntegrationUnavailable,\n    generate,\n    generate_from_source,\n)
+from pcb_forge.integrations.circuit_synth import (
+    IntegrationUnavailable,
+    generate,
+    generate_from_source,
+)
 from pcb_forge.integrations.kicad_cli import validate_project
 from pcb_forge.integrations.manufacturing import export_manufacturing
 
