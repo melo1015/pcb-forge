@@ -7,6 +7,7 @@ from pcb_forge.agents.base import CodeGenerationAgent, DesignAgent, ValidationAg
 from pcb_forge.config import Settings
 from pcb_forge.release_gate import (
     EvidenceItem,
+    GateStatus,
     evaluate_pre_export_gate,
     evaluate_release_gate,
 )
@@ -81,7 +82,7 @@ class Orchestrator:
         evidence, stale = self._load_project_evidence(project_dir)
         report = evaluate_release_gate(evidence)
         if stale:
-            report.status = report.status.BLOCKED
+            report.status = GateStatus.BLOCKED
             report.ready_for_fabrication = False
             report.missing = sorted(set(report.missing + list(report.required)))
             report.notes.append(
