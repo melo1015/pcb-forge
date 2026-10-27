@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from enum import Enum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class GateStatus(str, Enum):
@@ -22,6 +22,16 @@ class EvidenceItem(BaseModel):
     source: str | None = None
     artifact: str | None = None
     details: str | None = None
+
+    @model_validator(mode="after")
+    def successful_evidence_must_be_traceable(self) -> "EvidenceItem":
+        if self.passed is True and (
+            not self.source or not (self.artifact or self.details)
+        ):
+            raise ValueError(
+                "Passing evidence requires a source and an artifact or review details."
+            )
+        return self
 
 
 class ReleaseGateReport(BaseModel):
