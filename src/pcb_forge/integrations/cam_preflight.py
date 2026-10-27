@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Independent structural checks for a KiCad Gerber/Excellon fabrication package.
 
 This is a lightweight CAM preflight, not a CAM viewer, DFM certification, or
