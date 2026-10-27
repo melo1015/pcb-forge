@@ -8,8 +8,8 @@ permissions:
 
 jobs:
   circuit-synth-kicad:
-    # Register a trusted self-hosted Linux runner with this label. It must have
-    # Python 3.12+, KiCad CLI, and a working Circuit-Synth installation/network.
+    # Register a trusted self-hosted Linux runner with this label. KiCad CLI
+    # must be installed on the runner; Circuit-Synth is installed by this job.
     runs-on: [self-hosted, linux, pcb-forge-e2e]
     timeout-minutes: 30
     steps:
@@ -18,12 +18,13 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-      - name: Verify external tools
+      - name: Verify KiCad CLI
         run: |
           python --version
           kicad-cli version
-          python -c "import circuit_synth; print('Circuit-Synth import OK')"
-      - name: Install PCB Forge test dependencies
-        run: python -m pip install -e ".[dev]"
+      - name: Install PCB Forge and Circuit-Synth
+        run: python -m pip install -e ".[dev,circuit-synth]"
+      - name: Verify Circuit-Synth
+        run: python -c "import circuit_synth; print('Circuit-Synth import OK')"
       - name: Generate 5V regulator and run KiCad ERC/DRC commands
         run: python scripts/run_circuit_synth_e2e.py examples/circuit_synth/regulator_5v.py
