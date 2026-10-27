@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -196,11 +197,59 @@ def main() -> int:
                 }
             reports.append(item)
 
+    quality = []
+    for item in reports:
+        report_path = Path(str(item["report"]))
+        report_text = report_path.read_text(encoding="utf-8", errors="replace") if report_path.is_file() else ""
+        if item["kind"] == "ERC":
+            match = re.search(r"ERC messages:\\s*\\d+\\s+Errors\\s+(\\d+)\\s+Warnings\\s+(\\d+)", report_text)
+            quality.append({
+                "kind": "ERC",
+                "errors": int(match.group(1)) if match else None,
+                "warnings": int(match.group(2)) if match else None,
+                "counts_parsed": match is not None,
+                "report": str(report_path),
+            })
+        else:
+            violations = re.search(r"Found\\s+(\\d+)\\s+DRC violations", report_text)
+            unconnected = re.search(r"Found\\s+(\\d+)\\s+unconnected pads", report_text)
+            quality.append({
+                "kind": "DRC",
+                "violations": int(violations.group(1)) if violations else None,
+                "unconnected_items": int(unconnected.group(1)) if unconnected else None,
+                "counts_parsed": violations is not None and unconnected is not None,
+                "report": str(report_path),
+            })
+
+    fallback_used = bool(fallback_result and fallback_result.get("ok"))
+    quality_failures = []
+    for item in quality:
+        if not item["counts_parsed"]:
+            quality_failures.append(f"Could not parse {item['kind']} report counts")
+        elif item["kind"] == "ERC" and item["errors"] != 0:
+            quality_failures.append(f"ERC reported {item['errors']} errors")
+        elif item["kind"] == "DRC":
+            if item["violations"] != 0:
+                quality_failures.append(f"DRC reported {item['violations']} violations")
+            if item["unconnected_items"] and not fallback_used:
+                quality_failures.append(
+                    f"DRC reported {item['unconnected_items']} unconnected pads"
+                )
+
     summary = {
         "generation": result,
         "schematic_normalization": normalization,
         "pcb_fallback": fallback_result,
         "validation_commands": reports,
+        "quality_gate": {
+            "passed": not quality_failures,
+            "counts": quality,
+            "failures": quality_failures,
+            "note": (
+                "Unconnected pads are expected only for the explicitly unrouted "
+                "PCB placement-seed fallback; they are not acceptable for a routed board."
+            ),
+        },
         "schematics": [str(path) for path in schematics],
         "boards": [str(path) for path in boards],
         "note": (
@@ -210,13 +259,16 @@ def main() -> int:
             "manufacturing."
         ),
     }
-    summary_path.write_text(json.dumps(summary, indent=2, default=str) + "\n", encoding="utf-8")
+    summary_path.write_text(json.dumps(summary, indent=2, default=str) + "\\n", encoding="utf-8")
     print(json.dumps(summary, indent=2, default=str))
 
     if any(item["returncode"] != 0 for item in reports):
         return 1
     if any(not item["report_exists"] for item in reports):
         print("One or more ERC/DRC reports were not created.", file=sys.stderr)
+        return 1
+    if quality_failures:
+        print("ERC/DRC quality gate failed: " + "; ".join(quality_failures), file=sys.stderr)
         return 1
     return 0
 
