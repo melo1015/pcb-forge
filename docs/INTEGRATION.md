@@ -100,10 +100,10 @@ La prueba de referencia es `examples/circuit_synth/regulator_5v.py`. Para ejecut
 
 ```bash
 python -m pip install -e ".[dev,circuit-synth]"
-python scripts/run_circuit_synth_e2e.py examples/circuit_synth/regulator_5v.py
+python scripts/run_circuit_synth_e2e.py examples/circuit_synth/regulator_5v.py --output-dir artifacts/e2e
 ```
 
-El script genera el proyecto en un directorio temporal, comprueba que existan al menos un esquema y una placa KiCad, y ejecuta ERC y DRC, mostrando las salidas y las rutas de los informes. El script falla si la generación no produce los archivos esperados o si los comandos de KiCad no pueden ejecutarse; **un código de salida cero no significa que ERC/DRC estén libres de infracciones**. Revisa los informes y el diseño en KiCad antes de considerar fabricar la placa. La referencia de 5 V es una base de integración, no un diseño certificado ni listo para producción.
+El script conserva el proyecto generado, los informes ERC/DRC y `e2e-summary.json` en `pcb-forge-e2e-artifacts/` (o en el directorio indicado con `--output-dir`). Comprueba que existan al menos un esquema y una placa KiCad y ejecuta ERC y DRC. El script falla si la generación no produce los archivos esperados o si los comandos de KiCad no pueden ejecutarse; **un código de salida cero no significa que ERC/DRC estén libres de infracciones**. Revisa los informes y el diseño en KiCad antes de considerar fabricar la placa. La referencia de 5 V es una base de integración, no un diseño certificado ni listo para producción.
 
-Para habilitar el workflow, registra un runner autohospedado aislado con las tres etiquetas indicadas y ejecútalo manualmente desde la pestaña Actions. No registres como runner una máquina personal o de producción sin evaluar los riesgos de ejecutar código del repositorio.
+El workflow carga los archivos de `artifacts/e2e/` como artefacto descargable de GitHub Actions durante 14 días, incluso si falla una etapa posterior. Para habilitarlo, registra un runner autohospedado aislado con las tres etiquetas indicadas y ejecútalo manualmente desde la pestaña Actions. No registres como runner una máquina personal o de producción sin evaluar los riesgos de ejecutar código del repositorio.
 
