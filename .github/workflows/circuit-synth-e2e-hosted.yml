@@ -42,6 +42,10 @@ jobs:
           test -f "${KICAD_SYMBOL_DIR}/Device.kicad_sym"
           test -d "${KICAD_FOOTPRINT_DIR}"
           /usr/bin/python3 -c "import pcbnew; print('KiCad pcbnew bindings OK:', pcbnew.GetBuildVersion())"
+          # Initialize default symbol/footprint library tables for headless ERC/DRC.
+          mkdir -p "$HOME/.config/kicad/9.0"
+          cp /usr/share/kicad/template/sym-lib-table "$HOME/.config/kicad/9.0/sym-lib-table"
+          cp /usr/share/kicad/template/fp-lib-table "$HOME/.config/kicad/9.0/fp-lib-table"
       - name: Install PCB Forge and Circuit-Synth
         run: python -m pip install -e ".[dev,circuit-synth]"
       - name: Verify Circuit-Synth
