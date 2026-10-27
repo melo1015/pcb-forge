@@ -259,7 +259,7 @@ def main() -> int:
             "manufacturing."
         ),
     }
-    summary_path.write_text(json.dumps(summary, indent=2, default=str) + "\\n", encoding="utf-8")
+    summary_path.write_text(json.dumps(summary, indent=2, default=str) + "\n", encoding="utf-8")
     print(json.dumps(summary, indent=2, default=str))
 
     if any(item["returncode"] != 0 for item in reports):
