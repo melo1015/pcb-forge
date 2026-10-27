@@ -21,4 +21,6 @@ jobs:
       - run: python -m pip install --upgrade pip
       - run: pip install -e ".[dev]"
       - run: ruff check src tests
+      - name: Smoke-test MCP server import
+        run: python -c "from pcb_forge.mcp_server import mcp; print('MCP server import OK')"
       - run: pytest --cov=pcb_forge --cov-report=term-missing
