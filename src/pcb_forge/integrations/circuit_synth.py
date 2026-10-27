@@ -46,7 +46,7 @@ def generate(project_dir: Path, prompt: str, command: str, timeout: int = 120) -
         "request_file": str(request_file),
         "adapter_contract": "external-wrapper-v1",
         "generated_files_detected": sorted(
-            str(path) for path in project_dir.glob("*.kicad*") if path.is_file()
+            str(path) for path in project_dir.rglob("*.kicad*") if path.is_file()
         ),
     }
 
