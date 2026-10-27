@@ -55,3 +55,35 @@ def test_generation_failure_writes_summary(monkeypatch, tmp_path):
     assert summary["generation"]["error"] == "generator failed"
     assert summary["validation_commands"] == []
     assert summary["note"] == "Generation failed; ERC/DRC were not run."
+
+
+
+def test_manufacturing_gate_blocks_unrouted_fallback():
+    gate = run_circuit_synth_e2e._manufacturing_gate(
+        [
+            {"kind": "ERC", "errors": 0, "warnings": 0},
+            {"kind": "DRC", "violations": 0, "unconnected_items": 8},
+        ],
+        [],
+        fallback_used=True,
+    )
+
+    assert gate["passed"] is False
+    assert gate["ready"] is False
+    assert "PCB fallback created an unrouted placement seed" in gate["blocking_reasons"]
+    assert "DRC reports 8 unconnected pads" in gate["blocking_reasons"]
+
+
+def test_manufacturing_gate_passes_only_for_routed_clean_board():
+    gate = run_circuit_synth_e2e._manufacturing_gate(
+        [
+            {"kind": "ERC", "errors": 0, "warnings": 0},
+            {"kind": "DRC", "violations": 0, "unconnected_items": 0},
+        ],
+        [],
+        fallback_used=False,
+    )
+
+    assert gate["passed"] is True
+    assert gate["ready"] is True
+    assert gate["blocking_reasons"] == []
