@@ -1,6 +1,5 @@
 """MCP entry point."""
 import logging
-from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
 
