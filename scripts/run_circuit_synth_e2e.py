@@ -64,6 +64,20 @@ def main() -> int:
     schematics = sorted(project_dir.rglob("*.kicad_sch"))
     boards = sorted(project_dir.rglob("*.kicad_pcb"))
     if not schematics or not boards:
+        summary = {
+            "generation": result,
+            "validation_commands": [],
+            "schematics": [str(path) for path in schematics],
+            "boards": [str(path) for path in boards],
+            "note": (
+                "Generation reported success, but the expected schematic and/or board "
+                "is missing; ERC/DRC were not run."
+            ),
+        }
+        summary_path.write_text(
+            json.dumps(summary, indent=2, default=str) + "\\n", encoding="utf-8"
+        )
+        print(json.dumps(summary, indent=2, default=str))
         print("E2E requires at least one .kicad_sch and one .kicad_pcb.", file=sys.stderr)
         return 1
 
