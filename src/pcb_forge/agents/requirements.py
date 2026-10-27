@@ -58,11 +58,11 @@ class RequirementsAgent:
             "Extract electrical requirements for a PCB design from the supplied context. "
             "Return JSON only, matching this Pydantic schema exactly: "
             + json.dumps(ElectricalRequirements.model_json_schema())
-            + "\\nRules: do not guess, infer typical values, or fill missing engineering "
+            + "\nRules: do not guess, infer typical values, or fill missing engineering "
             "requirements with defaults. Use null for unknown scalar values, empty arrays "
             "for unavailable lists, duty_cycle='unknown' and source_type='unknown' when "
             "not supported by evidence. Put source references in evidence and uncertain "
-            "interpretations in assumptions. Context follows:\\n"
+            "interpretations in assumptions. Context follows:\n"
             + project_context
         )
         raw = self._llm_call(prompt)
