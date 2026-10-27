@@ -5,11 +5,11 @@ Missing evidence is BLOCKED, never silently treated as a pass.
 """
 from __future__ import annotations
 
-from enum import StrEnum
+from enum import Enum
 from pydantic import BaseModel, Field
 
 
-class GateStatus(StrEnum):
+class GateStatus(str, Enum):
     PASS = "PASS"
     FAIL = "FAIL"
     BLOCKED = "BLOCKED"
