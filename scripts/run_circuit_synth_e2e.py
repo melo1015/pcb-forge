@@ -11,6 +11,50 @@ from pathlib import Path
 from pcb_forge.integrations.circuit_synth import IntegrationUnavailable, generate_from_source
 
 
+def _create_pcb_seed(schematic: Path, board: Path, cli: str) -> dict[str, object]:
+    """Use KiCad's netlist and pcbnew when Circuit-Synth lacks PCB generation."""
+    helper = Path(__file__).resolve().with_name("create_board_from_netlist.py")
+    system_python = shutil.which("python3")
+    candidates = [Path("/usr/bin/python3"), Path(system_python) if system_python else None]
+    python = next(
+        (
+            str(candidate)
+            for candidate in candidates
+            if candidate and candidate.is_file()
+            and subprocess.run(
+                [str(candidate), "-c", "import pcbnew"],
+                capture_output=True, text=True, timeout=20, check=False,
+            ).returncode == 0
+        ),
+        None,
+    )
+    if python is None:
+        return {
+            "ok": False,
+            "error": "KiCad pcbnew Python bindings unavailable; install python3-pcbnew.",
+        }
+    command = [
+        python, str(helper), "--schematic", str(schematic),
+        "--board", str(board), "--kicad-cli", cli,
+    ]
+    completed = subprocess.run(
+        command, capture_output=True, text=True, timeout=180, check=False
+    )
+    return {
+        "ok": completed.returncode == 0 and board.is_file(),
+        "mode": "kicad-netlist-pcbnew-placement-seed",
+        "command": command,
+        "returncode": completed.returncode,
+        "stdout": completed.stdout[-4000:],
+        "stderr": completed.stderr[-4000:],
+        "board": str(board),
+        "warning": (
+            "Fallback PCB is an unrouted placement seed. It is not a production "
+            "layout and must be reviewed/routed before manufacturing."
+        ),
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("source", type=Path, help="Trusted Circuit-Synth Python source")
@@ -63,20 +107,37 @@ def main() -> int:
 
     schematics = sorted(project_dir.rglob("*.kicad_sch"))
     boards = sorted(project_dir.rglob("*.kicad_pcb"))
+    fallback_result = None
+    if schematics and not boards:
+        board_path = schematics[0].with_suffix(".kicad_pcb")
+        fallback_result = _create_pcb_seed(schematics[0], board_path, cli)
+        if fallback_result.get("ok"):
+            boards = sorted(project_dir.rglob("*.kicad_pcb"))
+        else:
+            summary = {
+                "generation": result,
+                "pcb_fallback": fallback_result,
+                "validation_commands": [],
+                "schematics": [str(path) for path in schematics],
+                "boards": [],
+                "note": "Schematic exists, but PCB seed generation failed; ERC/DRC were not run.",
+            }
+            summary_path.write_text(
+                json.dumps(summary, indent=2, default=str) + "\n", encoding="utf-8"
+            )
+            print(json.dumps(summary, indent=2, default=str))
+            return 1
+
     if not schematics or not boards:
         summary = {
             "generation": result,
+            "pcb_fallback": fallback_result,
             "validation_commands": [],
             "schematics": [str(path) for path in schematics],
             "boards": [str(path) for path in boards],
-            "note": (
-                "Generation reported success, but the expected schematic and/or board "
-                "is missing; ERC/DRC were not run."
-            ),
+            "note": "Expected schematic or PCB missing; ERC/DRC were not run.",
         }
-        summary_path.write_text(
-            json.dumps(summary, indent=2, default=str) + "\n", encoding="utf-8"
-        )
+        summary_path.write_text(json.dumps(summary, indent=2, default=str) + "\n", encoding="utf-8")
         print(json.dumps(summary, indent=2, default=str))
         print("E2E requires at least one .kicad_sch and one .kicad_pcb.", file=sys.stderr)
         return 1
@@ -116,15 +177,17 @@ def main() -> int:
 
     summary = {
         "generation": result,
+        "pcb_fallback": fallback_result,
         "validation_commands": reports,
         "schematics": [str(path) for path in schematics],
         "boards": [str(path) for path in boards],
         "note": (
+            "The PCB fallback, when used, creates an unrouted placement seed only. "
             "A zero CLI return code does not prove the design is violation-free; "
-            "inspect the retained ERC/DRC reports."
+            "inspect the retained ERC/DRC reports and route/review the board before "
+            "manufacturing."
         ),
     }
-    summary_path = output_dir / "e2e-summary.json"
     summary_path.write_text(json.dumps(summary, indent=2, default=str) + "\n", encoding="utf-8")
     print(json.dumps(summary, indent=2, default=str))
 
